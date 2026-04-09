@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
@@ -47,7 +46,7 @@ export default function AvatarCanvas() {
         <ambientLight intensity={1.2} />
         <directionalLight position={[1, 1, 1]} intensity={1.5} />
         <VRMAvatar />
-        <OrbitControls target={[0, 1, 0]} />
+        
       </Canvas>
     </div>
   );
