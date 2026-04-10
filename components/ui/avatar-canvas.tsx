@@ -36,17 +36,22 @@ function VRMAvatar() {
 
   if (!vrm) return null;
 
-  return <primitive object={vrm.scene} position={[0, -1, 0]} />;
+   return (
+    <primitive
+      object={vrm.scene}
+      position={[0, -0.4, 0]}
+      scale={1.1}
+    />
+  );
 }
 
 export default function AvatarCanvas() {
   return (
-    <div className="w-full h-[500px]">
-      <Canvas camera={{ position: [0, 1.4, 2.2], fov: 30 }}>
+    <div className="w-full h-[400px] md:h-[450px] overflow-hidden rounded-2xl  bg-muted/40">
+      <Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
         <ambientLight intensity={1.2} />
         <directionalLight position={[1, 1, 1]} intensity={1.5} />
         <VRMAvatar />
-        
       </Canvas>
     </div>
   );
