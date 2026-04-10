@@ -34,7 +34,21 @@ import {
 } from "lucide-react";
 import type { FC } from "react";
 
-export const Thread: FC = () => {
+type ThreadProps = {
+  onUserSend?: () => void;
+  onAssistantStart?: () => void;
+  onAssistantDone?: () => void;
+};
+
+type ComposerProps = {
+  onUserSend?: () => void;
+};
+
+export const Thread: FC<ThreadProps> = ({
+  onUserSend,
+  onAssistantStart,
+  onAssistantDone,
+}) => {
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full min-h-1 flex-col bg-background"
@@ -50,16 +64,22 @@ export const Thread: FC = () => {
           <ThreadWelcome />
         </AuiIf>
         <ThreadPrimitive.Messages
-          components={{
-            UserMessage,
-            EditComposer,
-            AssistantMessage,
-          }}
-        />
+  components={{
+    UserMessage,
+    EditComposer,
+    AssistantMessage: (props) => (
+      <AssistantMessage
+        {...props}
+        onAssistantStart={onAssistantStart}
+        onAssistantDone={onAssistantDone}
+      />
+    ),
+  }}
+/>
 
         <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible pt-4 pb-4 bg-background">
           <ThreadScrollToBottom />
-          <Composer />
+          <Composer onUserSend={onUserSend} />
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
@@ -129,7 +149,7 @@ const ThreadSuggestionItem: FC = () => {
   );
 };
 
-const Composer: FC = () => {
+const Composer: FC<ComposerProps> = ({ onUserSend }) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
@@ -141,13 +161,17 @@ const Composer: FC = () => {
           autoFocus
           aria-label="Message input"
         />
-        <ComposerAction />
+        <ComposerAction onUserSend={onUserSend} />
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+type ComposerActionProps = {
+  onUserSend?: () => void;
+};
+
+const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
   return (
     <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
       <ComposerAddAttachment />
@@ -161,6 +185,7 @@ const ComposerAction: FC = () => {
             size="icon"
             className="aui-composer-send size-8 rounded-full"
             aria-label="Send message"
+            onClick={() => onUserSend?.()}
           >
             <ArrowUpIcon className="aui-composer-send-icon size-4" />
           </TooltipIconButton>
