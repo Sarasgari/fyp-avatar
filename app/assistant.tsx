@@ -5,10 +5,11 @@ import {
   useChatRuntime,
   AssistantChatTransport,
 } from "@assistant-ui/react-ai-sdk";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { Thread } from "@/components/assistant-ui/thread";
 import AvatarCanvas from "@/components/ui/avatar-canvas";
+import type { AvatarState } from "@/lib/avatar-state";
 
 export const Assistant = () => {
   const runtime = useChatRuntime({
@@ -18,7 +19,7 @@ export const Assistant = () => {
     }),
   });
 
-  const [avatarState, setAvatarState] = useState<"idle" | "thinking" | "talking">("idle");
+  const [avatarState, setAvatarState] = useState<AvatarState>("idle");
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -31,11 +32,7 @@ export const Assistant = () => {
           </div>
 
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Thread
-              onUserSend={() => setAvatarState("thinking")}
-              onAssistantStart={() => setAvatarState("talking")}
-              onAssistantDone={() => setAvatarState("idle")}
-            />
+            <Thread onAvatarStateChange={setAvatarState} />
           </div>
         </div>
       </div>
