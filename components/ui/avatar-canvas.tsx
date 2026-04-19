@@ -196,7 +196,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
       if (!speechState.active) {
         speechState.active = true;
         speechState.cadenceOffset = Math.random() * Math.PI * 2;
-        speechState.current = pickNextMouthPreset("aa");
+        speechState.current = "aa";
         speechState.previous = "aa";
         scheduleNextSpeechBeat(speechState, time);
       }
