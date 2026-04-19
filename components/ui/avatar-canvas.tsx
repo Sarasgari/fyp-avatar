@@ -12,6 +12,7 @@ const BASE_POSITION_Y = -0.4;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
 
 type MouthPreset = (typeof MOUTH_PRESETS)[number];
+type SpeakingEmotion = "happy" | "surprised" | "excited" | null;
 
 type SpeechState = {
   active: boolean;
@@ -22,6 +23,11 @@ type SpeechState = {
   pauseUntil: number;
   peak: number;
   cadenceOffset: number;
+  emotion: SpeakingEmotion;
+  emotionStartsAt: number;
+  emotionEndsAt: number;
+  emotionCooldownUntil: number;
+  emotionIntensity: number;
 };
 
 const VOWEL_TRANSITION_WEIGHTS: Record<MouthPreset, Record<MouthPreset, number>> = {
@@ -43,6 +49,14 @@ const VOWEL_BLEND_MAP: Record<MouthPreset, Partial<Record<MouthPreset, number>>>
 
 const randomBetween = (min: number, max: number) =>
   min + Math.random() * (max - min);
+
+const pickRandomEmotion = (): Exclude<SpeakingEmotion, null> => {
+  const roll = Math.random();
+
+  if (roll < 0.38) return "happy";
+  if (roll < 0.68) return "surprised";
+  return "excited";
+};
 
 const pickNextMouthPreset = (current: MouthPreset): MouthPreset => {
   const weights = VOWEL_TRANSITION_WEIGHTS[current];
@@ -94,6 +108,36 @@ const scheduleNextSpeechBeat = (speechState: SpeechState, time: number) => {
   // Short closures between syllables keep the mouth from looking robotic.
   speechState.pauseUntil =
     Math.random() < 0.22 ? time + randomBetween(0.035, 0.085) : 0;
+};
+
+const updateSpeakingEmotion = (speechState: SpeechState, time: number) => {
+  if (speechState.emotion && time >= speechState.emotionEndsAt) {
+    speechState.emotion = null;
+    speechState.emotionIntensity = 0;
+    speechState.emotionCooldownUntil = time + randomBetween(0.35, 0.95);
+  }
+
+  if (!speechState.emotion && time >= speechState.emotionCooldownUntil && Math.random() < 0.04) {
+    speechState.emotion = pickRandomEmotion();
+    speechState.emotionStartsAt = time;
+    speechState.emotionEndsAt = time + randomBetween(0.45, 1.15);
+    speechState.emotionIntensity = randomBetween(0.45, 0.92);
+  }
+};
+
+const getEmotionEnvelope = (speechState: SpeechState, time: number) => {
+  if (!speechState.emotion) return 0;
+
+  const duration = Math.max(speechState.emotionEndsAt - speechState.emotionStartsAt, 0.001);
+  const progress = THREE.MathUtils.clamp(
+    (time - speechState.emotionStartsAt) / duration,
+    0,
+    1,
+  );
+  const attack = THREE.MathUtils.smoothstep(progress, 0, 0.22);
+  const release = 1 - THREE.MathUtils.smoothstep(progress, 0.7, 1);
+
+  return speechState.emotionIntensity * attack * release;
 };
 
 const dampExpressionValue = (
@@ -159,6 +203,11 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     pauseUntil: 0,
     peak: 0.8,
     cadenceOffset: Math.random() * Math.PI * 2,
+    emotion: null,
+    emotionStartsAt: 0,
+    emotionEndsAt: 0,
+    emotionCooldownUntil: 0,
+    emotionIntensity: 0,
   });
 
   useEffect(() => {
@@ -191,6 +240,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     const speechState = speechStateRef.current;
     const mouthTargets = createMouthTargets();
     let speechEnergy = 0;
+    let emotionEnergy = 0;
 
     if (state === "speaking") {
       if (!speechState.active) {
@@ -198,12 +248,18 @@ function VRMAvatar({ state }: { state: AvatarState }) {
         speechState.cadenceOffset = Math.random() * Math.PI * 2;
         speechState.current = "aa";
         speechState.previous = "aa";
+        speechState.emotion = null;
+        speechState.emotionEndsAt = 0;
+        speechState.emotionCooldownUntil = time + randomBetween(0.2, 0.6);
         scheduleNextSpeechBeat(speechState, time);
       }
 
       while (time >= speechState.nextChangeAt) {
         scheduleNextSpeechBeat(speechState, speechState.nextChangeAt);
       }
+
+      updateSpeakingEmotion(speechState, time);
+      emotionEnergy = getEmotionEnvelope(speechState, time);
 
       const syllableDuration = Math.max(
         speechState.nextChangeAt - speechState.startedAt,
@@ -244,6 +300,17 @@ function VRMAvatar({ state }: { state: AvatarState }) {
         Math.sin(time * 15.5 + speechState.cadenceOffset * 0.6) * 0.008;
       mouthTargets.aa += Math.max(0, jawBed) * speakingStrength * 0.45;
 
+      if (speechState.emotion === "surprised") {
+        mouthTargets.oh += emotionEnergy * 0.34;
+        mouthTargets.aa += emotionEnergy * 0.16;
+      }
+
+      if (speechState.emotion === "excited") {
+        mouthTargets.aa += emotionEnergy * 0.12;
+        mouthTargets.oh += emotionEnergy * 0.18;
+        mouthTargets.ee += emotionEnergy * 0.1;
+      }
+
       speechEnergy = THREE.MathUtils.clamp(
         Math.max(...MOUTH_PRESETS.map((preset) => mouthTargets[preset])),
         0,
@@ -252,6 +319,8 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     } else {
       speechState.active = false;
       speechState.pauseUntil = 0;
+      speechState.emotion = null;
+      speechState.emotionIntensity = 0;
     }
 
     const targetRotationY =
@@ -260,7 +329,8 @@ function VRMAvatar({ state }: { state: AvatarState }) {
         : state === "speaking"
           ? Math.PI +
             Math.sin(time * 1.35) * 0.02 +
-            Math.sin(time * 4.8 + speechState.cadenceOffset) * 0.01 * speechEnergy
+            Math.sin(time * 4.8 + speechState.cadenceOffset) * 0.01 * speechEnergy +
+            (speechState.emotion === "excited" ? Math.sin(time * 6.8) * 0.018 * emotionEnergy : 0)
           : Math.PI + Math.sin(time * 0.9) * 0.08;
 
     const targetRotationX =
@@ -268,26 +338,33 @@ function VRMAvatar({ state }: { state: AvatarState }) {
         ? -0.08 + Math.sin(time * 1.15) * 0.015
         : state === "speaking"
           ? 0.015 +
-            Math.sin(time * 3.6 + speechState.cadenceOffset) * 0.008 * speechEnergy
+            Math.sin(time * 3.6 + speechState.cadenceOffset) * 0.008 * speechEnergy +
+            (speechState.emotion === "surprised" ? -0.04 * emotionEnergy : 0) +
+            (speechState.emotion === "excited" ? Math.sin(time * 7.5) * 0.012 * emotionEnergy : 0)
           : Math.sin(time * 1.1) * 0.01;
 
     const targetRotationZ =
       state === "thinking"
         ? -0.08
         : state === "speaking"
-          ? Math.sin(time * 2.8 + speechState.cadenceOffset) * 0.006 * speechEnergy
+          ? Math.sin(time * 2.8 + speechState.cadenceOffset) * 0.006 * speechEnergy +
+            (speechState.emotion === "happy" ? -0.025 * emotionEnergy : 0) +
+            (speechState.emotion === "excited" ? Math.sin(time * 5.4) * 0.014 * emotionEnergy : 0)
           : 0;
 
     const targetPositionX =
       state === "thinking"
         ? -0.05
         : state === "speaking"
-          ? Math.sin(time * 2.2 + speechState.cadenceOffset) * 0.01 * speechEnergy
+          ? Math.sin(time * 2.2 + speechState.cadenceOffset) * 0.01 * speechEnergy +
+            (speechState.emotion === "happy" ? -0.018 * emotionEnergy : 0)
           : 0;
     const targetPositionY =
       BASE_POSITION_Y +
       breathing * (state === "thinking" ? 0.01 : 0.018) +
-      speechEnergy * 0.01;
+      speechEnergy * 0.01 +
+      (speechState.emotion === "excited" ? Math.sin(time * 8.2) * 0.012 * emotionEnergy : 0) +
+      (speechState.emotion === "surprised" ? 0.012 * emotionEnergy : 0);
 
     vrm.scene.rotation.x = THREE.MathUtils.damp(
       vrm.scene.rotation.x,
@@ -337,6 +414,45 @@ function VRMAvatar({ state }: { state: AvatarState }) {
       state === "thinking" ? 0.18 : state === "speaking" ? 0.1 : 0.06,
       delta,
       10,
+    );
+    dampExpressionValue(
+      vrm,
+      "happy",
+      state === "speaking"
+        ? speechState.emotion === "happy"
+          ? emotionEnergy * 0.85
+          : speechState.emotion === "excited"
+            ? emotionEnergy * 0.6
+            : 0
+        : 0,
+      delta,
+      11,
+    );
+    dampExpressionValue(
+      vrm,
+      "surprised",
+      state === "speaking"
+        ? speechState.emotion === "surprised"
+          ? emotionEnergy * 0.95
+          : speechState.emotion === "excited"
+            ? emotionEnergy * 0.45
+            : 0
+        : 0,
+      delta,
+      12,
+    );
+    dampExpressionValue(
+      vrm,
+      "lookUp",
+      state === "speaking"
+        ? speechState.emotion === "surprised"
+          ? emotionEnergy * 0.3
+          : speechState.emotion === "excited"
+            ? emotionEnergy * 0.18
+            : 0
+        : 0,
+      delta,
+      9,
     );
     dampExpressionValue(vrm, "lookDown", state === "thinking" ? 0.22 : 0, delta);
     dampExpressionValue(vrm, "lookLeft", state === "thinking" ? 0.08 : 0, delta);
