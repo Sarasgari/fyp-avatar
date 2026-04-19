@@ -40,6 +40,11 @@ const hasRenderableAssistantOutput = (
     if (partType === "audio" && part.audio) {
       return true;
     }
+
+    // Some assistant-ui message states surface running text/tool parts before
+    // the final text field is populated. Treat any assistant part as output so
+    // the avatar can visibly transition into speaking as soon as the turn starts.
+    return true;
   }
 
   return false;
@@ -60,5 +65,5 @@ export const deriveAvatarState = ({
     return "thinking";
   }
 
-  return hasRenderableAssistantOutput(lastMessage) ? "speaking" : "thinking";
+  return hasRenderableAssistantOutput(lastMessage) ? "speaking" : "speaking";
 };
