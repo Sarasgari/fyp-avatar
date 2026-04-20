@@ -3,11 +3,12 @@ import {
   ComposerAttachments,
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { SpeechSyncedMarkdownText } from "@/components/assistant-ui/speech-synced-markdown-text";
+import { ThreadVoiceController } from "@/components/assistant-ui/thread-voice-controller";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
-import { type AvatarState, deriveAvatarState } from "@/lib/avatar-state";
+import { type AvatarState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -19,7 +20,6 @@ import {
   MessagePrimitive,
   SuggestionPrimitive,
   ThreadPrimitive,
-  useThread,
 } from "@assistant-ui/react";
 import {
   ArrowDownIcon,
@@ -34,14 +34,18 @@ import {
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
-import { type FC, useEffect, useRef } from "react";
+import type { FC } from "react";
 
 type ThreadProps = {
+  onUserSend?: () => void;
   onAvatarStateChange?: (state: AvatarState) => void;
+  stopSpeechRequest?: number;
 };
 
 export const Thread: FC<ThreadProps> = ({
+  onUserSend,
   onAvatarStateChange,
+  stopSpeechRequest,
 }) => {
   return (
     <ThreadPrimitive.Root
@@ -50,7 +54,10 @@ export const Thread: FC<ThreadProps> = ({
         ["--thread-max-width" as string]: "80rem",
       }}
     >
-      <ThreadAvatarStateSync onAvatarStateChange={onAvatarStateChange} />
+      <ThreadVoiceController
+        onAvatarStateChange={onAvatarStateChange}
+        stopSpeechRequest={stopSpeechRequest}
+      />
       <ThreadPrimitive.Viewport
   turnAnchor="top"
   className="aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2 pt-1 pb-2"
@@ -68,35 +75,11 @@ export const Thread: FC<ThreadProps> = ({
 
         <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible pt-4 pb-4 bg-background">
           <ThreadScrollToBottom />
-          <Composer />
+          <Composer onUserSend={onUserSend} />
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
-};
-
-const ThreadAvatarStateSync: FC<{
-  onAvatarStateChange?: (state: AvatarState) => void;
-}> = ({ onAvatarStateChange }) => {
-  const isRunning = useThread((thread) => thread.isRunning);
-  const messages = useThread((thread) => thread.messages);
-  const previousStateRef = useRef<AvatarState>("idle");
-
-  useEffect(() => {
-    const nextState = deriveAvatarState({ isRunning, messages });
-    if (previousStateRef.current === nextState) return;
-
-    previousStateRef.current = nextState;
-    onAvatarStateChange?.(nextState);
-  }, [isRunning, messages, onAvatarStateChange]);
-
-  useEffect(() => {
-    return () => {
-      onAvatarStateChange?.("idle");
-    };
-  }, [onAvatarStateChange]);
-
-  return null;
 };
 
 const ThreadScrollToBottom: FC = () => {
@@ -162,7 +145,11 @@ const ThreadSuggestionItem: FC = () => {
   );
 };
 
-const Composer: FC = () => {
+type ComposerProps = {
+  onUserSend?: () => void;
+};
+
+const Composer: FC<ComposerProps> = ({ onUserSend }) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
@@ -174,13 +161,17 @@ const Composer: FC = () => {
           autoFocus
           aria-label="Message input"
         />
-        <ComposerAction />
+        <ComposerAction onUserSend={onUserSend} />
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+type ComposerActionProps = {
+  onUserSend?: () => void;
+};
+
+const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
   return (
     <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
       <ComposerAddAttachment />
@@ -194,6 +185,7 @@ const ComposerAction: FC = () => {
             size="icon"
             className="aui-composer-send size-8 rounded-full"
             aria-label="Send message"
+            onClick={() => onUserSend?.()}
           >
             <ArrowUpIcon className="aui-composer-send-icon size-4" />
           </TooltipIconButton>
@@ -235,7 +227,7 @@ const AssistantMessage: FC = () => {
       <div className="aui-assistant-message-content wrap-break-word px-2 text-foreground leading-relaxed">
         <MessagePrimitive.Parts
           components={{
-            Text: MarkdownText,
+            Text: SpeechSyncedMarkdownText,
             tools: { Fallback: ToolFallback },
           }}
         />

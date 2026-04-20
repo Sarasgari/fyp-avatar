@@ -161,7 +161,7 @@ const getNextBlinkDelay = (state: AvatarState) => {
   switch (state) {
     case "thinking":
       return 1.4 + Math.random() * 1.4;
-    case "speaking":
+    case "talking":
       return 1.8 + Math.random() * 1.6;
     default:
       return 2.4 + Math.random() * 2;
@@ -242,7 +242,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     let speechEnergy = 0;
     let emotionEnergy = 0;
 
-    if (state === "speaking") {
+    if (state === "talking") {
       if (!speechState.active) {
         speechState.active = true;
         speechState.cadenceOffset = Math.random() * Math.PI * 2;
@@ -326,7 +326,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     const targetRotationY =
       state === "thinking"
         ? Math.PI + 0.16 + Math.sin(time * 0.65) * 0.04
-        : state === "speaking"
+        : state === "talking"
           ? Math.PI +
             Math.sin(time * 1.35) * 0.02 +
             Math.sin(time * 4.8 + speechState.cadenceOffset) * 0.01 * speechEnergy +
@@ -336,7 +336,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     const targetRotationX =
       state === "thinking"
         ? -0.08 + Math.sin(time * 1.15) * 0.015
-        : state === "speaking"
+        : state === "talking"
           ? 0.015 +
             Math.sin(time * 3.6 + speechState.cadenceOffset) * 0.008 * speechEnergy +
             (speechState.emotion === "surprised" ? -0.04 * emotionEnergy : 0) +
@@ -346,7 +346,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     const targetRotationZ =
       state === "thinking"
         ? -0.08
-        : state === "speaking"
+        : state === "talking"
           ? Math.sin(time * 2.8 + speechState.cadenceOffset) * 0.006 * speechEnergy +
             (speechState.emotion === "happy" ? -0.025 * emotionEnergy : 0) +
             (speechState.emotion === "excited" ? Math.sin(time * 5.4) * 0.014 * emotionEnergy : 0)
@@ -355,7 +355,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     const targetPositionX =
       state === "thinking"
         ? -0.05
-        : state === "speaking"
+        : state === "talking"
           ? Math.sin(time * 2.2 + speechState.cadenceOffset) * 0.01 * speechEnergy +
             (speechState.emotion === "happy" ? -0.018 * emotionEnergy : 0)
           : 0;
@@ -411,14 +411,14 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     dampExpressionValue(
       vrm,
       "relaxed",
-      state === "thinking" ? 0.18 : state === "speaking" ? 0.1 : 0.06,
+      state === "thinking" ? 0.18 : state === "talking" ? 0.1 : 0.06,
       delta,
       10,
     );
     dampExpressionValue(
       vrm,
       "happy",
-      state === "speaking"
+      state === "talking"
         ? speechState.emotion === "happy"
           ? emotionEnergy * 0.85
           : speechState.emotion === "excited"
@@ -431,7 +431,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     dampExpressionValue(
       vrm,
       "surprised",
-      state === "speaking"
+      state === "talking"
         ? speechState.emotion === "surprised"
           ? emotionEnergy * 0.95
           : speechState.emotion === "excited"
@@ -444,7 +444,7 @@ function VRMAvatar({ state }: { state: AvatarState }) {
     dampExpressionValue(
       vrm,
       "lookUp",
-      state === "speaking"
+      state === "talking"
         ? speechState.emotion === "surprised"
           ? emotionEnergy * 0.3
           : speechState.emotion === "excited"

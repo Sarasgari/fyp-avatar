@@ -9,6 +9,7 @@ import { useState } from "react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { Thread } from "@/components/assistant-ui/thread";
 import AvatarCanvas from "@/components/ui/avatar-canvas";
+import { Button } from "@/components/ui/button";
 import type { AvatarState } from "@/lib/avatar-state";
 
 export const Assistant = () => {
@@ -20,6 +21,7 @@ export const Assistant = () => {
   });
 
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
+  const [stopSpeechRequest, setStopSpeechRequest] = useState(0);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -28,14 +30,27 @@ export const Assistant = () => {
           <div className="shrink-0 flex justify-center pt-3 pb-2">
             <div className="relative w-full max-w-lg">
               <AvatarCanvas state={avatarState} />
-              <div className="absolute top-3 right-3 rounded-full border border-border/70 bg-background/85 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
-                {avatarState}
+              <div className="pointer-events-none absolute top-3 right-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="pointer-events-auto rounded-full shadow-sm"
+                  disabled={avatarState === "idle"}
+                  onClick={() => setStopSpeechRequest((current) => current + 1)}
+                >
+                  Stop voice
+                </Button>
               </div>
             </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Thread onAvatarStateChange={setAvatarState} />
+            <Thread
+              onUserSend={() => setAvatarState("thinking")}
+              onAvatarStateChange={setAvatarState}
+              stopSpeechRequest={stopSpeechRequest}
+            />
           </div>
         </div>
       </div>
