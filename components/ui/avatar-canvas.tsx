@@ -1,487 +1,898 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
-import type { AvatarState } from "@/lib/avatar-state";
+import type { AvatarState, Emotion } from "@/lib/avatar-state";
 
 const MODEL_PATH = "/models/AjoMajo.vrm";
 const BASE_POSITION_Y = -0.4;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
+const FACE_EXPRESSION_NAMES = [
+	"happy",
+	"sad",
+	"angry",
+	"surprised",
+	"relaxed",
+	"lookUp",
+	"lookDown",
+	"lookLeft",
+	"lookRight",
+] as const;
+const ROTATION_AXES = ["x", "y", "z"] as const;
+const BODY_BONE_NAMES = [
+	"hips",
+	"spine",
+	"chest",
+	"neck",
+	"head",
+	"leftShoulder",
+	"rightShoulder",
+	"leftUpperArm",
+	"rightUpperArm",
+	"leftLowerArm",
+	"rightLowerArm",
+	"leftHand",
+	"rightHand",
+] as const;
 
 type MouthPreset = (typeof MOUTH_PRESETS)[number];
-type SpeakingEmotion = "happy" | "surprised" | "excited" | null;
-
+type FaceExpressionName = (typeof FACE_EXPRESSION_NAMES)[number];
+type RotationAxis = (typeof ROTATION_AXES)[number];
+type BodyBoneName = (typeof BODY_BONE_NAMES)[number];
+type FaceTargets = Record<FaceExpressionName, number>;
+type BoneRotationTargets = Partial<Record<RotationAxis, number>>;
+type BodyPoseTargets = Partial<Record<BodyBoneName, BoneRotationTargets>>;
+type BodyRig = Partial<
+	Record<
+		BodyBoneName,
+		{
+			bone: THREE.Object3D;
+			restQuaternion: THREE.Quaternion;
+			targetQuaternion: THREE.Quaternion;
+		}
+	>
+>;
 type SpeechState = {
-  active: boolean;
-  current: MouthPreset;
-  previous: MouthPreset;
-  startedAt: number;
-  nextChangeAt: number;
-  pauseUntil: number;
-  peak: number;
-  cadenceOffset: number;
-  emotion: SpeakingEmotion;
-  emotionStartsAt: number;
-  emotionEndsAt: number;
-  emotionCooldownUntil: number;
-  emotionIntensity: number;
+	active: boolean;
+	current: MouthPreset;
+	previous: MouthPreset;
+	startedAt: number;
+	nextChangeAt: number;
+	pauseUntil: number;
+	peak: number;
+	cadenceOffset: number;
 };
+type FaceState = Exclude<AvatarState, "talking">;
 
-const VOWEL_TRANSITION_WEIGHTS: Record<MouthPreset, Record<MouthPreset, number>> = {
-  aa: { aa: 0.14, ee: 1.02, ih: 1.12, oh: 0.94, ou: 0.76 },
-  ee: { aa: 1.08, ee: 0.18, ih: 1.05, oh: 0.68, ou: 0.58 },
-  ih: { aa: 1.02, ee: 0.96, ih: 0.18, oh: 0.76, ou: 0.7 },
-  oh: { aa: 0.98, ee: 0.72, ih: 0.74, oh: 0.18, ou: 1.12 },
-  ou: { aa: 0.92, ee: 0.6, ih: 0.78, oh: 1.16, ou: 0.2 },
+const VOWEL_TRANSITION_WEIGHTS: Record<
+	MouthPreset,
+	Record<MouthPreset, number>
+> = {
+	aa: { aa: 0.14, ee: 1.02, ih: 1.12, oh: 0.94, ou: 0.76 },
+	ee: { aa: 1.08, ee: 0.18, ih: 1.05, oh: 0.68, ou: 0.58 },
+	ih: { aa: 1.02, ee: 0.96, ih: 0.18, oh: 0.76, ou: 0.7 },
+	oh: { aa: 0.98, ee: 0.72, ih: 0.74, oh: 0.18, ou: 1.12 },
+	ou: { aa: 0.92, ee: 0.6, ih: 0.78, oh: 1.16, ou: 0.2 },
 };
 
 // Blend each vowel into neighboring mouth shapes to mimic coarticulation.
-const VOWEL_BLEND_MAP: Record<MouthPreset, Partial<Record<MouthPreset, number>>> = {
-  aa: { aa: 1, oh: 0.16 },
-  ee: { ee: 1, ih: 0.24 },
-  ih: { ih: 1, ee: 0.14 },
-  oh: { oh: 1, ou: 0.24, aa: 0.1 },
-  ou: { ou: 1, oh: 0.28 },
+const VOWEL_BLEND_MAP: Record<
+	MouthPreset,
+	Partial<Record<MouthPreset, number>>
+> = {
+	aa: { aa: 1, oh: 0.16 },
+	ee: { ee: 1, ih: 0.24 },
+	ih: { ih: 1, ee: 0.14 },
+	oh: { oh: 1, ou: 0.24, aa: 0.1 },
+	ou: { ou: 1, oh: 0.28 },
 };
 
 const randomBetween = (min: number, max: number) =>
-  min + Math.random() * (max - min);
-
-const pickRandomEmotion = (): Exclude<SpeakingEmotion, null> => {
-  const roll = Math.random();
-
-  if (roll < 0.38) return "happy";
-  if (roll < 0.68) return "surprised";
-  return "excited";
-};
+	min + Math.random() * (max - min);
 
 const pickNextMouthPreset = (current: MouthPreset): MouthPreset => {
-  const weights = VOWEL_TRANSITION_WEIGHTS[current];
-  const totalWeight = Object.values(weights).reduce(
-    (sum, weight) => sum + weight,
-    0,
-  );
-  let threshold = Math.random() * totalWeight;
+	const weights = VOWEL_TRANSITION_WEIGHTS[current];
+	const totalWeight = Object.values(weights).reduce(
+		(sum, weight) => sum + weight,
+		0,
+	);
+	let threshold = Math.random() * totalWeight;
 
-  for (const preset of MOUTH_PRESETS) {
-    threshold -= weights[preset];
-    if (threshold <= 0) {
-      return preset;
-    }
-  }
+	for (const preset of MOUTH_PRESETS) {
+		threshold -= weights[preset];
+		if (threshold <= 0) {
+			return preset;
+		}
+	}
 
-  return current;
+	return current;
 };
 
 const createMouthTargets = (): Record<MouthPreset, number> => ({
-  aa: 0,
-  ee: 0,
-  ih: 0,
-  oh: 0,
-  ou: 0,
+	aa: 0,
+	ee: 0,
+	ih: 0,
+	oh: 0,
+	ou: 0,
 });
 
-const addVowelBlend = (
-  targets: Record<MouthPreset, number>,
-  vowel: MouthPreset,
-  strength: number,
-) => {
-  const blend = VOWEL_BLEND_MAP[vowel];
+const createFaceTargets = (): FaceTargets => ({
+	happy: 0,
+	sad: 0,
+	angry: 0,
+	surprised: 0,
+	relaxed: 0,
+	lookUp: 0,
+	lookDown: 0,
+	lookLeft: 0,
+	lookRight: 0,
+});
 
-  for (const preset of MOUTH_PRESETS) {
-    const contribution = blend[preset] ?? 0;
-    if (!contribution) continue;
-    targets[preset] += contribution * strength;
-  }
+const setFaceTarget = (
+	targets: FaceTargets,
+	expressionName: FaceExpressionName,
+	value: number,
+) => {
+	targets[expressionName] = THREE.MathUtils.clamp(value, 0, 1);
+};
+
+const applySideLook = (targets: FaceTargets, amount: number) => {
+	setFaceTarget(targets, "lookLeft", Math.max(0, amount));
+	setFaceTarget(targets, "lookRight", Math.max(0, -amount));
+};
+
+const resetExpressions = (targets: FaceTargets) => {
+	for (const expressionName of FACE_EXPRESSION_NAMES) {
+		targets[expressionName] = 0;
+	}
+};
+
+const applyNeutralFace = (targets: FaceTargets) => {
+	setFaceTarget(targets, "relaxed", 0.06);
+};
+
+const applyHappyFace = (targets: FaceTargets) => {
+	setFaceTarget(targets, "happy", 0.78);
+	setFaceTarget(targets, "relaxed", 0.16);
+	setFaceTarget(targets, "lookUp", 0.03);
+};
+
+const applySadFace = (targets: FaceTargets) => {
+	setFaceTarget(targets, "sad", 0.6);
+	setFaceTarget(targets, "relaxed", 0.14);
+	setFaceTarget(targets, "lookDown", 0.12);
+};
+
+const applyAnxiousFace = (targets: FaceTargets, time: number) => {
+	setFaceTarget(targets, "sad", 0.18);
+	setFaceTarget(targets, "surprised", 0.12);
+	setFaceTarget(targets, "relaxed", 0.08);
+	setFaceTarget(targets, "lookDown", 0.05);
+	applySideLook(
+		targets,
+		Math.sin(time * 1.1) * 0.04 + Math.sin(time * 0.4 + 0.6) * 0.02,
+	);
+};
+
+const applyAngryFace = (targets: FaceTargets) => {
+	setFaceTarget(targets, "angry", 0.72);
+	setFaceTarget(targets, "lookDown", 0.06);
+	setFaceTarget(targets, "relaxed", 0.02);
+};
+
+const applyConfusedFace = (targets: FaceTargets, time: number) => {
+	setFaceTarget(targets, "surprised", 0.18);
+	setFaceTarget(targets, "relaxed", 0.12);
+	applySideLook(targets, Math.sin(time * 0.55 + 0.4) * 0.05);
+	setFaceTarget(targets, "lookDown", 0.04);
+};
+
+const applyEmpatheticFace = (targets: FaceTargets) => {
+	setFaceTarget(targets, "sad", 0.1);
+	setFaceTarget(targets, "relaxed", 0.28);
+	setFaceTarget(targets, "lookDown", 0.06);
+};
+
+const applyThinkingFace = (targets: FaceTargets, time: number) => {
+	setFaceTarget(targets, "relaxed", 0.14);
+	setFaceTarget(targets, "lookDown", 0.12);
+	applySideLook(targets, Math.sin(time * 0.42 + 0.2) * 0.035);
+	setFaceTarget(targets, "surprised", 0.03);
+};
+
+const applyTalkingState = (targets: FaceTargets, speechEnergy: number) => {
+	setFaceTarget(
+		targets,
+		"relaxed",
+		Math.max(targets.relaxed, 0.08 + speechEnergy * 0.04),
+	);
+};
+
+const applyFaceState = (
+	targets: FaceTargets,
+	faceState: FaceState,
+	time: number,
+) => {
+	resetExpressions(targets);
+
+	switch (faceState) {
+		case "thinking":
+			applyThinkingFace(targets, time);
+			return;
+		case "happy":
+			applyHappyFace(targets);
+			return;
+		case "sad":
+			applySadFace(targets);
+			return;
+		case "anxious":
+			applyAnxiousFace(targets, time);
+			return;
+		case "angry":
+			applyAngryFace(targets);
+			return;
+		case "confused":
+			applyConfusedFace(targets, time);
+			return;
+		case "empathetic":
+			applyEmpatheticFace(targets);
+			return;
+		default:
+			applyNeutralFace(targets);
+	}
 };
 
 const scheduleNextSpeechBeat = (speechState: SpeechState, time: number) => {
-  speechState.previous = speechState.current;
-  speechState.current = pickNextMouthPreset(speechState.current);
-  speechState.startedAt = time;
-  speechState.nextChangeAt = time + randomBetween(0.09, 0.2);
-  speechState.peak = randomBetween(0.58, 0.96);
+	speechState.previous = speechState.current;
+	speechState.current = pickNextMouthPreset(speechState.current);
+	speechState.startedAt = time;
+	speechState.nextChangeAt = time + randomBetween(0.09, 0.2);
+	speechState.peak = randomBetween(0.58, 0.96);
 
-  // Short closures between syllables keep the mouth from looking robotic.
-  speechState.pauseUntil =
-    Math.random() < 0.22 ? time + randomBetween(0.035, 0.085) : 0;
+	// Short closures between syllables keep the mouth from looking robotic.
+	speechState.pauseUntil =
+		Math.random() < 0.22 ? time + randomBetween(0.035, 0.085) : 0;
 };
 
-const updateSpeakingEmotion = (speechState: SpeechState, time: number) => {
-  if (speechState.emotion && time >= speechState.emotionEndsAt) {
-    speechState.emotion = null;
-    speechState.emotionIntensity = 0;
-    speechState.emotionCooldownUntil = time + randomBetween(0.35, 0.95);
-  }
+const addVowelBlend = (
+	targets: Record<MouthPreset, number>,
+	vowel: MouthPreset,
+	strength: number,
+) => {
+	const blend = VOWEL_BLEND_MAP[vowel];
 
-  if (!speechState.emotion && time >= speechState.emotionCooldownUntil && Math.random() < 0.04) {
-    speechState.emotion = pickRandomEmotion();
-    speechState.emotionStartsAt = time;
-    speechState.emotionEndsAt = time + randomBetween(0.45, 1.15);
-    speechState.emotionIntensity = randomBetween(0.45, 0.92);
-  }
-};
-
-const getEmotionEnvelope = (speechState: SpeechState, time: number) => {
-  if (!speechState.emotion) return 0;
-
-  const duration = Math.max(speechState.emotionEndsAt - speechState.emotionStartsAt, 0.001);
-  const progress = THREE.MathUtils.clamp(
-    (time - speechState.emotionStartsAt) / duration,
-    0,
-    1,
-  );
-  const attack = THREE.MathUtils.smoothstep(progress, 0, 0.22);
-  const release = 1 - THREE.MathUtils.smoothstep(progress, 0.7, 1);
-
-  return speechState.emotionIntensity * attack * release;
+	for (const preset of MOUTH_PRESETS) {
+		const contribution = blend[preset] ?? 0;
+		if (!contribution) continue;
+		targets[preset] += contribution * strength;
+	}
 };
 
 const dampExpressionValue = (
-  vrm: VRM,
-  expressionName: string,
-  target: number,
-  delta: number,
-  speed = 14,
+	vrm: VRM,
+	expressionName: string,
+	target: number,
+	delta: number,
+	speed = 14,
 ) => {
-  const expressionManager = vrm.expressionManager;
-  if (!expressionManager) return;
+	const expressionManager = vrm.expressionManager;
+	if (!expressionManager) return;
 
-  const currentValue = expressionManager.getValue(expressionName) ?? 0;
-  expressionManager.setValue(
-    expressionName,
-    THREE.MathUtils.damp(currentValue, target, speed, delta),
-  );
+	const currentValue = expressionManager.getValue(expressionName) ?? 0;
+	expressionManager.setValue(
+		expressionName,
+		THREE.MathUtils.damp(currentValue, target, speed, delta),
+	);
 };
 
-const getNextBlinkDelay = (state: AvatarState) => {
-  switch (state) {
-    case "thinking":
-      return 1.4 + Math.random() * 1.4;
-    case "speaking":
-      return 1.8 + Math.random() * 1.6;
-    default:
-      return 2.4 + Math.random() * 2;
-  }
+const emotionToFaceState = (emotion: Emotion): FaceState =>
+	emotion === "neutral" ? "idle" : emotion;
+
+const resolveFaceState = (state: AvatarState, emotion: Emotion): FaceState => {
+	if (state === "talking") {
+		return emotionToFaceState(emotion);
+	}
+
+	return state;
+};
+
+const getNextBlinkDelay = (state: AvatarState, faceState: FaceState) => {
+	if (state === "talking") {
+		return 1.8 + Math.random() * 1.4;
+	}
+
+	switch (faceState) {
+		case "thinking":
+			return 1.4 + Math.random() * 1.4;
+		case "anxious":
+			return 1.2 + Math.random() * 1.1;
+		case "confused":
+			return 1.5 + Math.random() * 1.2;
+		case "sad":
+			return 2.6 + Math.random() * 1.6;
+		default:
+			return 2.2 + Math.random() * 1.8;
+	}
 };
 
 const getBlinkAmount = (
-  time: number,
-  blinkWindow: { start: number; end: number; next: number },
-  state: AvatarState,
+	time: number,
+	blinkWindow: { start: number; end: number; next: number },
+	state: AvatarState,
+	faceState: FaceState,
 ) => {
-  if (time >= blinkWindow.next) {
-    blinkWindow.start = time;
-    blinkWindow.end = time + 0.12;
-    blinkWindow.next = time + getNextBlinkDelay(state);
-  }
+	if (time >= blinkWindow.next) {
+		blinkWindow.start = time;
+		blinkWindow.end = time + 0.12;
+		blinkWindow.next = time + getNextBlinkDelay(state, faceState);
+	}
 
-  if (time < blinkWindow.start || time > blinkWindow.end) {
-    return 0;
-  }
+	if (time < blinkWindow.start || time > blinkWindow.end) {
+		return 0;
+	}
 
-  const progress = (time - blinkWindow.start) / (blinkWindow.end - blinkWindow.start);
-  return Math.sin(progress * Math.PI);
+	const progress =
+		(time - blinkWindow.start) / (blinkWindow.end - blinkWindow.start);
+	return Math.sin(progress * Math.PI);
 };
 
-function VRMAvatar({ state }: { state: AvatarState }) {
-  const [vrm, setVrm] = useState<VRM | null>(null);
-  const blinkWindowRef = useRef({
-    start: 0,
-    end: 0,
-    next: 1.8,
-  });
-  const speechStateRef = useRef<SpeechState>({
-    active: false,
-    current: "aa",
-    previous: "aa",
-    startedAt: 0,
-    nextChangeAt: 0,
-    pauseUntil: 0,
-    peak: 0.8,
-    cadenceOffset: Math.random() * Math.PI * 2,
-    emotion: null,
-    emotionStartsAt: 0,
-    emotionEndsAt: 0,
-    emotionCooldownUntil: 0,
-    emotionIntensity: 0,
-  });
+const getBasePose = (faceState: FaceState, time: number) => {
+	switch (faceState) {
+		case "thinking":
+			return {
+				rotationX: -0.05 + Math.sin(time * 1.15) * 0.012,
+				rotationY: Math.PI + 0.1 + Math.sin(time * 0.65) * 0.03,
+				rotationZ: -0.04,
+				positionX: -0.05,
+				positionYOffset: 0,
+				breathingScale: 0.01,
+			};
+		case "happy":
+			return {
+				rotationX: 0.012 + Math.sin(time * 0.9) * 0.01,
+				rotationY: Math.PI - 0.02 + Math.sin(time * 0.85) * 0.04,
+				rotationZ: -0.02,
+				positionX: -0.02,
+				positionYOffset: 0.004,
+				breathingScale: 0.02,
+			};
+		case "sad":
+			return {
+				rotationX: -0.055 + Math.sin(time * 0.8) * 0.008,
+				rotationY: Math.PI + 0.02,
+				rotationZ: 0.018,
+				positionX: 0,
+				positionYOffset: -0.01,
+				breathingScale: 0.012,
+			};
+		case "anxious":
+			return {
+				rotationX: -0.03 + Math.sin(time * 2.4) * 0.01,
+				rotationY: Math.PI + Math.sin(time * 1.8) * 0.05,
+				rotationZ: Math.sin(time * 1.5) * 0.01,
+				positionX: Math.sin(time * 1.6) * 0.01,
+				positionYOffset: 0.006,
+				breathingScale: 0.02,
+			};
+		case "angry":
+			return {
+				rotationX: -0.02,
+				rotationY: Math.PI + 0.04,
+				rotationZ: 0.012,
+				positionX: 0.015,
+				positionYOffset: 0.002,
+				breathingScale: 0.016,
+			};
+		case "confused":
+			return {
+				rotationX: -0.012 + Math.sin(time * 0.75) * 0.008,
+				rotationY: Math.PI + 0.1 + Math.sin(time * 0.7) * 0.03,
+				rotationZ: -0.03,
+				positionX: -0.01,
+				positionYOffset: 0.002,
+				breathingScale: 0.017,
+			};
+		case "empathetic":
+			return {
+				rotationX: -0.04 + Math.sin(time * 0.8) * 0.008,
+				rotationY: Math.PI - 0.03 + Math.sin(time * 0.55) * 0.02,
+				rotationZ: -0.015,
+				positionX: -0.015,
+				positionYOffset: -0.004,
+				breathingScale: 0.015,
+			};
+		default:
+			return {
+				rotationX: Math.sin(time * 1.1) * 0.01,
+				rotationY: Math.PI + Math.sin(time * 0.9) * 0.08,
+				rotationZ: 0,
+				positionX: 0,
+				positionYOffset: 0,
+				breathingScale: 0.018,
+			};
+	}
+};
 
-  useEffect(() => {
-    const loader = new GLTFLoader();
-    loader.register((parser) => new VRMLoaderPlugin(parser));
+const setBoneTarget = (
+	targets: BodyPoseTargets,
+	boneName: BodyBoneName,
+	rotation: BoneRotationTargets,
+) => {
+	targets[boneName] = rotation;
+};
 
-    loader.load(
-      MODEL_PATH,
-      (gltf) => {
-        const loadedVrm = gltf.userData.vrm as VRM;
-        if (!loadedVrm) return;
+const createBaseBodyPose = (time: number): BodyPoseTargets => {
+	const torsoSway = Math.sin(time * 0.7) * 0.02;
+	const torsoBreath = Math.sin(time * 1.2) * 0.014;
 
-        loadedVrm.scene.rotation.set(0, Math.PI, 0);
-        loadedVrm.scene.position.set(0, BASE_POSITION_Y, 0);
-        setVrm(loadedVrm);
-      },
-      undefined,
-      (error) => {
-        console.error("Failed to load VRM:", error);
-      },
-    );
-  }, []);
+	const targets: BodyPoseTargets = {};
 
-  useFrame(({ clock }, delta) => {
-    if (!vrm) return;
+	setBoneTarget(targets, "hips", { x: 0, y: torsoSway * 0.35, z: 0 });
+	setBoneTarget(targets, "spine", {
+		x: 0.025 + torsoBreath * 0.28,
+		y: torsoSway * 0.28,
+		z: 0,
+	});
+	setBoneTarget(targets, "chest", {
+		x: 0.03 + torsoBreath * 0.38,
+		y: torsoSway * 0.45,
+		z: 0,
+	});
+	setBoneTarget(targets, "neck", { x: -0.015, y: torsoSway * 0.4, z: 0 });
+	setBoneTarget(targets, "head", { x: 0.015, y: torsoSway * 0.52, z: 0 });
+	setBoneTarget(targets, "leftShoulder", { z: 0.1 });
+	setBoneTarget(targets, "rightShoulder", { z: -0.1 });
+	setBoneTarget(targets, "leftUpperArm", { x: 0.02, z: 0.78 });
+	setBoneTarget(targets, "rightUpperArm", { x: -0.02, z: -0.78 });
+	setBoneTarget(targets, "leftLowerArm", { z: 0.06 });
+	setBoneTarget(targets, "rightLowerArm", { z: -0.06 });
+	setBoneTarget(targets, "leftHand", { x: 0.03, z: 0.02 });
+	setBoneTarget(targets, "rightHand", { x: -0.03, z: -0.02 });
 
-    const time = clock.getElapsedTime();
-    const breathing = Math.sin(time * 1.6);
-    const blink = getBlinkAmount(time, blinkWindowRef.current, state);
-    const speechState = speechStateRef.current;
-    const mouthTargets = createMouthTargets();
-    let speechEnergy = 0;
-    let emotionEnergy = 0;
+	return targets;
+};
 
-    if (state === "speaking") {
-      if (!speechState.active) {
-        speechState.active = true;
-        speechState.cadenceOffset = Math.random() * Math.PI * 2;
-        speechState.current = "aa";
-        speechState.previous = "aa";
-        speechState.emotion = null;
-        speechState.emotionEndsAt = 0;
-        speechState.emotionCooldownUntil = time + randomBetween(0.2, 0.6);
-        scheduleNextSpeechBeat(speechState, time);
-      }
+const getBoneRotationTarget = (
+	targets: BodyPoseTargets,
+	boneName: BodyBoneName,
+	axis: RotationAxis,
+) => targets[boneName]?.[axis] ?? 0;
 
-      while (time >= speechState.nextChangeAt) {
-        scheduleNextSpeechBeat(speechState, speechState.nextChangeAt);
-      }
+const offsetBoneTarget = (
+	targets: BodyPoseTargets,
+	boneName: BodyBoneName,
+	rotation: BoneRotationTargets,
+) => {
+	for (const axis of ROTATION_AXES) {
+		const value = rotation[axis];
+		if (value === undefined) continue;
 
-      updateSpeakingEmotion(speechState, time);
-      emotionEnergy = getEmotionEnvelope(speechState, time);
+		setBoneTarget(targets, boneName, {
+			...targets[boneName],
+			[axis]: getBoneRotationTarget(targets, boneName, axis) + value,
+		});
+	}
+};
 
-      const syllableDuration = Math.max(
-        speechState.nextChangeAt - speechState.startedAt,
-        0.001,
-      );
-      const syllableProgress = THREE.MathUtils.clamp(
-        (time - speechState.startedAt) / syllableDuration,
-        0,
-        1,
-      );
-      const attack = THREE.MathUtils.smoothstep(syllableProgress, 0, 0.18);
-      const release =
-        1 - THREE.MathUtils.smoothstep(syllableProgress, 0.68, 1);
-      const carry =
-        1 - THREE.MathUtils.smoothstep(syllableProgress, 0.08, 0.58);
-      const phraseEnvelope = THREE.MathUtils.clamp(
-        0.82 +
-          Math.sin(time * 2.4 + speechState.cadenceOffset) * 0.14 +
-          Math.sin(time * 0.95 + speechState.cadenceOffset * 0.35) * 0.08,
-        0.55,
-        1.1,
-      );
-      const syllableEnvelope =
-        time < speechState.pauseUntil ? 0 : attack * release;
-      const speakingStrength =
-        speechState.peak * phraseEnvelope * syllableEnvelope;
+const getBodyPoseTargets = (
+	faceState: FaceState,
+	state: AvatarState,
+	time: number,
+	speechEnergy: number,
+) => {
+	const targets = createBaseBodyPose(time);
+	const talking = state === "talking";
+	const talkDrift = talking
+		? Math.sin(time * 2.6) * (0.008 + speechEnergy * 0.02)
+		: 0;
+	const talkGesture = talking
+		? Math.sin(time * 3.4) * (0.01 + speechEnergy * 0.018)
+		: 0;
 
-      addVowelBlend(mouthTargets, speechState.current, speakingStrength);
-      addVowelBlend(
-        mouthTargets,
-        speechState.previous,
-        speakingStrength * 0.34 * carry,
-      );
+	switch (faceState) {
+		case "thinking":
+			offsetBoneTarget(targets, "chest", { x: -0.015, y: 0.03 });
+			offsetBoneTarget(targets, "neck", { x: -0.05, y: 0.05 });
+			offsetBoneTarget(targets, "head", { x: -0.06, y: 0.08, z: -0.05 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.03 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.015 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.08 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.05 });
+			break;
+		case "happy":
+			offsetBoneTarget(targets, "chest", { x: 0.03 });
+			offsetBoneTarget(targets, "neck", { x: 0.015 });
+			offsetBoneTarget(targets, "head", { x: 0.02, z: -0.025 });
+			offsetBoneTarget(targets, "leftShoulder", { z: -0.03 });
+			offsetBoneTarget(targets, "rightShoulder", { z: 0.03 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.1 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.1 });
+			break;
+		case "sad":
+			offsetBoneTarget(targets, "spine", { x: -0.03 });
+			offsetBoneTarget(targets, "chest", { x: -0.05 });
+			offsetBoneTarget(targets, "neck", { x: -0.04 });
+			offsetBoneTarget(targets, "head", { x: -0.05, z: 0.02 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.04 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.04 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.05 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.05 });
+			break;
+		case "anxious":
+			offsetBoneTarget(targets, "chest", {
+				x: -0.02,
+				y: Math.sin(time * 1.2) * 0.025,
+			});
+			offsetBoneTarget(targets, "neck", {
+				x: -0.035,
+				y: Math.sin(time * 1.5) * 0.035,
+			});
+			offsetBoneTarget(targets, "head", {
+				x: -0.02,
+				y: Math.sin(time * 1.7) * 0.045,
+				z: Math.sin(time * 1.9) * 0.012,
+			});
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.055 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.055 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.08 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.08 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.04 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.04 });
+			break;
+		case "angry":
+			offsetBoneTarget(targets, "spine", { x: 0.015 });
+			offsetBoneTarget(targets, "chest", { x: 0.05 });
+			offsetBoneTarget(targets, "neck", { x: 0.025 });
+			offsetBoneTarget(targets, "head", { x: 0.015, y: 0.03 });
+			offsetBoneTarget(targets, "leftShoulder", { z: -0.02 });
+			offsetBoneTarget(targets, "rightShoulder", { z: 0.02 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.06 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.06 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.08 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.08 });
+			break;
+		case "confused":
+			offsetBoneTarget(targets, "chest", { y: 0.03 });
+			offsetBoneTarget(targets, "neck", { y: 0.05 });
+			offsetBoneTarget(targets, "head", { x: -0.015, y: 0.06, z: -0.08 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.02 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.05 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.03 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.06 });
+			break;
+		case "empathetic":
+			offsetBoneTarget(targets, "spine", { x: -0.01 });
+			offsetBoneTarget(targets, "chest", { x: -0.02 });
+			offsetBoneTarget(targets, "neck", { x: -0.015, y: -0.03 });
+			offsetBoneTarget(targets, "head", { x: -0.03, y: -0.04, z: 0.03 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.04 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.04 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.03 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.03 });
+			break;
+		default:
+			break;
+	}
 
-      const jawBed =
-        0.035 +
-        Math.sin(time * 9.5 + speechState.cadenceOffset) * 0.012 +
-        Math.sin(time * 15.5 + speechState.cadenceOffset * 0.6) * 0.008;
-      mouthTargets.aa += Math.max(0, jawBed) * speakingStrength * 0.45;
+	if (talking) {
+		offsetBoneTarget(targets, "chest", { y: talkDrift * 0.8 });
+		offsetBoneTarget(targets, "neck", { y: talkDrift * 1.1 });
+		offsetBoneTarget(targets, "head", {
+			x: talkDrift * 0.25,
+			y: talkDrift * 0.9,
+			z: talkDrift * 0.22,
+		});
+		offsetBoneTarget(targets, "leftLowerArm", { z: talkGesture });
+		offsetBoneTarget(targets, "rightLowerArm", { z: -talkGesture });
+		offsetBoneTarget(targets, "leftHand", { x: talkGesture * 0.35 });
+		offsetBoneTarget(targets, "rightHand", { x: -talkGesture * 0.35 });
+	}
 
-      if (speechState.emotion === "surprised") {
-        mouthTargets.oh += emotionEnergy * 0.34;
-        mouthTargets.aa += emotionEnergy * 0.16;
-      }
+	return targets;
+};
 
-      if (speechState.emotion === "excited") {
-        mouthTargets.aa += emotionEnergy * 0.12;
-        mouthTargets.oh += emotionEnergy * 0.18;
-        mouthTargets.ee += emotionEnergy * 0.1;
-      }
+const getHumanoidBone = (vrm: VRM, boneName: BodyBoneName) =>
+	vrm.humanoid?.getNormalizedBoneNode?.(boneName) ??
+	vrm.humanoid?.getRawBoneNode?.(boneName) ??
+	null;
 
-      speechEnergy = THREE.MathUtils.clamp(
-        Math.max(...MOUTH_PRESETS.map((preset) => mouthTargets[preset])),
-        0,
-        1,
-      );
-    } else {
-      speechState.active = false;
-      speechState.pauseUntil = 0;
-      speechState.emotion = null;
-      speechState.emotionIntensity = 0;
-    }
+const bodyPoseEuler = new THREE.Euler(0, 0, 0, "XYZ");
+const bodyPoseQuaternion = new THREE.Quaternion();
+const getBlendAlpha = (delta: number, speed: number) =>
+	1 - Math.exp(-speed * delta);
 
-    const targetRotationY =
-      state === "thinking"
-        ? Math.PI + 0.16 + Math.sin(time * 0.65) * 0.04
-        : state === "speaking"
-          ? Math.PI +
-            Math.sin(time * 1.35) * 0.02 +
-            Math.sin(time * 4.8 + speechState.cadenceOffset) * 0.01 * speechEnergy +
-            (speechState.emotion === "excited" ? Math.sin(time * 6.8) * 0.018 * emotionEnergy : 0)
-          : Math.PI + Math.sin(time * 0.9) * 0.08;
+const applyBodyPose = (
+	bodyRig: BodyRig,
+	faceState: FaceState,
+	state: AvatarState,
+	time: number,
+	speechEnergy: number,
+	delta: number,
+) => {
+	const poseTargets = getBodyPoseTargets(faceState, state, time, speechEnergy);
 
-    const targetRotationX =
-      state === "thinking"
-        ? -0.08 + Math.sin(time * 1.15) * 0.015
-        : state === "speaking"
-          ? 0.015 +
-            Math.sin(time * 3.6 + speechState.cadenceOffset) * 0.008 * speechEnergy +
-            (speechState.emotion === "surprised" ? -0.04 * emotionEnergy : 0) +
-            (speechState.emotion === "excited" ? Math.sin(time * 7.5) * 0.012 * emotionEnergy : 0)
-          : Math.sin(time * 1.1) * 0.01;
+	for (const boneName of BODY_BONE_NAMES) {
+		const rig = bodyRig[boneName];
+		if (!rig) continue;
 
-    const targetRotationZ =
-      state === "thinking"
-        ? -0.08
-        : state === "speaking"
-          ? Math.sin(time * 2.8 + speechState.cadenceOffset) * 0.006 * speechEnergy +
-            (speechState.emotion === "happy" ? -0.025 * emotionEnergy : 0) +
-            (speechState.emotion === "excited" ? Math.sin(time * 5.4) * 0.014 * emotionEnergy : 0)
-          : 0;
+		const targets = poseTargets[boneName];
+		bodyPoseEuler.set(targets?.x ?? 0, targets?.y ?? 0, targets?.z ?? 0, "XYZ");
+		rig.targetQuaternion
+			.copy(rig.restQuaternion)
+			.multiply(bodyPoseQuaternion.setFromEuler(bodyPoseEuler));
+		rig.bone.quaternion.slerp(
+			rig.targetQuaternion,
+			getBlendAlpha(
+				delta,
+				boneName === "head" || boneName === "neck" ? 7.5 : 5.2,
+			),
+		);
+	}
+};
 
-    const targetPositionX =
-      state === "thinking"
-        ? -0.05
-        : state === "speaking"
-          ? Math.sin(time * 2.2 + speechState.cadenceOffset) * 0.01 * speechEnergy +
-            (speechState.emotion === "happy" ? -0.018 * emotionEnergy : 0)
-          : 0;
-    const targetPositionY =
-      BASE_POSITION_Y +
-      breathing * (state === "thinking" ? 0.01 : 0.018) +
-      speechEnergy * 0.01 +
-      (speechState.emotion === "excited" ? Math.sin(time * 8.2) * 0.012 * emotionEnergy : 0) +
-      (speechState.emotion === "surprised" ? 0.012 * emotionEnergy : 0);
+function VRMAvatar({
+	state,
+	emotion,
+}: {
+	state: AvatarState;
+	emotion: Emotion;
+}) {
+	const [vrm, setVrm] = useState<VRM | null>(null);
+	const bodyRigRef = useRef<BodyRig>({});
+	const blinkWindowRef = useRef({
+		start: 0,
+		end: 0,
+		next: 1.8,
+	});
+	const speechStateRef = useRef<SpeechState>({
+		active: false,
+		current: "aa",
+		previous: "aa",
+		startedAt: 0,
+		nextChangeAt: 0,
+		pauseUntil: 0,
+		peak: 0.8,
+		cadenceOffset: Math.random() * Math.PI * 2,
+	});
 
-    vrm.scene.rotation.x = THREE.MathUtils.damp(
-      vrm.scene.rotation.x,
-      targetRotationX,
-      5,
-      delta,
-    );
-    vrm.scene.rotation.y = THREE.MathUtils.damp(
-      vrm.scene.rotation.y,
-      targetRotationY,
-      5,
-      delta,
-    );
-    vrm.scene.rotation.z = THREE.MathUtils.damp(
-      vrm.scene.rotation.z,
-      targetRotationZ,
-      5,
-      delta,
-    );
-    vrm.scene.position.x = THREE.MathUtils.damp(
-      vrm.scene.position.x,
-      targetPositionX,
-      4,
-      delta,
-    );
-    vrm.scene.position.y = THREE.MathUtils.damp(
-      vrm.scene.position.y,
-      targetPositionY,
-      4,
-      delta,
-    );
+	useEffect(() => {
+		const loader = new GLTFLoader();
+		loader.register((parser) => new VRMLoaderPlugin(parser));
 
-    for (const preset of MOUTH_PRESETS) {
-      dampExpressionValue(
-        vrm,
-        preset,
-        THREE.MathUtils.clamp(mouthTargets[preset], 0, 1),
-        delta,
-        18,
-      );
-    }
+		loader.load(
+			MODEL_PATH,
+			(gltf) => {
+				const loadedVrm = gltf.userData.vrm as VRM;
+				if (!loadedVrm) return;
 
-    dampExpressionValue(vrm, "blink", blink, delta, 22);
-    dampExpressionValue(
-      vrm,
-      "relaxed",
-      state === "thinking" ? 0.18 : state === "speaking" ? 0.1 : 0.06,
-      delta,
-      10,
-    );
-    dampExpressionValue(
-      vrm,
-      "happy",
-      state === "speaking"
-        ? speechState.emotion === "happy"
-          ? emotionEnergy * 0.85
-          : speechState.emotion === "excited"
-            ? emotionEnergy * 0.6
-            : 0
-        : 0,
-      delta,
-      11,
-    );
-    dampExpressionValue(
-      vrm,
-      "surprised",
-      state === "speaking"
-        ? speechState.emotion === "surprised"
-          ? emotionEnergy * 0.95
-          : speechState.emotion === "excited"
-            ? emotionEnergy * 0.45
-            : 0
-        : 0,
-      delta,
-      12,
-    );
-    dampExpressionValue(
-      vrm,
-      "lookUp",
-      state === "speaking"
-        ? speechState.emotion === "surprised"
-          ? emotionEnergy * 0.3
-          : speechState.emotion === "excited"
-            ? emotionEnergy * 0.18
-            : 0
-        : 0,
-      delta,
-      9,
-    );
-    dampExpressionValue(vrm, "lookDown", state === "thinking" ? 0.22 : 0, delta);
-    dampExpressionValue(vrm, "lookLeft", state === "thinking" ? 0.08 : 0, delta);
+				loadedVrm.scene.rotation.set(0, Math.PI, 0);
+				loadedVrm.scene.position.set(0, BASE_POSITION_Y, 0);
+				const bodyRig: BodyRig = {};
 
-    vrm.update(delta);
-  });
+				for (const boneName of BODY_BONE_NAMES) {
+					const bone = getHumanoidBone(loadedVrm, boneName);
+					if (!bone) continue;
 
-  if (!vrm) return null;
+					bodyRig[boneName] = {
+						bone,
+						restQuaternion: bone.quaternion.clone(),
+						targetQuaternion: bone.quaternion.clone(),
+					};
+				}
 
-  return (
-    <primitive
-      object={vrm.scene}
-      scale={1.1}
-    />
-  );
+				bodyRigRef.current = bodyRig;
+				setVrm(loadedVrm);
+			},
+			undefined,
+			(error) => {
+				console.error("Failed to load VRM:", error);
+			},
+		);
+	}, []);
+
+	useFrame(({ clock }, delta) => {
+		if (!vrm) return;
+
+		const time = clock.getElapsedTime();
+		const breathing = Math.sin(time * 1.6);
+		const faceState = resolveFaceState(state, emotion);
+		const blink = getBlinkAmount(
+			time,
+			blinkWindowRef.current,
+			state,
+			faceState,
+		);
+		const speechState = speechStateRef.current;
+		const mouthTargets = createMouthTargets();
+		const faceTargets = createFaceTargets();
+		let speechEnergy = 0;
+
+		if (state === "talking") {
+			if (!speechState.active) {
+				speechState.active = true;
+				speechState.cadenceOffset = Math.random() * Math.PI * 2;
+				speechState.current = "aa";
+				speechState.previous = "aa";
+				scheduleNextSpeechBeat(speechState, time);
+			}
+
+			while (time >= speechState.nextChangeAt) {
+				scheduleNextSpeechBeat(speechState, speechState.nextChangeAt);
+			}
+
+			const syllableDuration = Math.max(
+				speechState.nextChangeAt - speechState.startedAt,
+				0.001,
+			);
+			const syllableProgress = THREE.MathUtils.clamp(
+				(time - speechState.startedAt) / syllableDuration,
+				0,
+				1,
+			);
+			const attack = THREE.MathUtils.smoothstep(syllableProgress, 0, 0.18);
+			const release = 1 - THREE.MathUtils.smoothstep(syllableProgress, 0.68, 1);
+			const carry =
+				1 - THREE.MathUtils.smoothstep(syllableProgress, 0.08, 0.58);
+			const phraseEnvelope = THREE.MathUtils.clamp(
+				0.82 +
+					Math.sin(time * 2.4 + speechState.cadenceOffset) * 0.14 +
+					Math.sin(time * 0.95 + speechState.cadenceOffset * 0.35) * 0.08,
+				0.55,
+				1.1,
+			);
+			const syllableEnvelope =
+				time < speechState.pauseUntil ? 0 : attack * release;
+			const speakingStrength =
+				speechState.peak * phraseEnvelope * syllableEnvelope;
+
+			addVowelBlend(mouthTargets, speechState.current, speakingStrength);
+			addVowelBlend(
+				mouthTargets,
+				speechState.previous,
+				speakingStrength * 0.34 * carry,
+			);
+
+			const jawBed =
+				0.035 +
+				Math.sin(time * 9.5 + speechState.cadenceOffset) * 0.012 +
+				Math.sin(time * 15.5 + speechState.cadenceOffset * 0.6) * 0.008;
+			mouthTargets.aa += Math.max(0, jawBed) * speakingStrength * 0.45;
+
+			speechEnergy = THREE.MathUtils.clamp(
+				Math.max(...MOUTH_PRESETS.map((preset) => mouthTargets[preset])),
+				0,
+				1,
+			);
+		} else {
+			speechState.active = false;
+			speechState.pauseUntil = 0;
+		}
+
+		applyFaceState(faceTargets, faceState, time);
+
+		if (state === "talking") {
+			applyTalkingState(faceTargets, speechEnergy);
+		}
+
+		const basePose = getBasePose(faceState, time);
+
+		const targetRotationX =
+			basePose.rotationX +
+			(state === "talking"
+				? 0.015 +
+					Math.sin(time * 3.6 + speechState.cadenceOffset) *
+						0.008 *
+						speechEnergy
+				: 0);
+		const targetRotationY =
+			basePose.rotationY +
+			(state === "talking"
+				? Math.sin(time * 1.35) * 0.02 +
+					Math.sin(time * 4.8 + speechState.cadenceOffset) * 0.01 * speechEnergy
+				: 0);
+		const targetRotationZ =
+			basePose.rotationZ +
+			(state === "talking"
+				? Math.sin(time * 2.8 + speechState.cadenceOffset) *
+					0.006 *
+					speechEnergy
+				: 0);
+		const targetPositionX =
+			basePose.positionX +
+			(state === "talking"
+				? Math.sin(time * 2.2 + speechState.cadenceOffset) * 0.01 * speechEnergy
+				: 0);
+		const targetPositionY =
+			BASE_POSITION_Y +
+			basePose.positionYOffset +
+			breathing * basePose.breathingScale +
+			speechEnergy * 0.006;
+
+		vrm.scene.rotation.x = THREE.MathUtils.damp(
+			vrm.scene.rotation.x,
+			targetRotationX,
+			5,
+			delta,
+		);
+		vrm.scene.rotation.y = THREE.MathUtils.damp(
+			vrm.scene.rotation.y,
+			targetRotationY,
+			5,
+			delta,
+		);
+		vrm.scene.rotation.z = THREE.MathUtils.damp(
+			vrm.scene.rotation.z,
+			targetRotationZ,
+			5,
+			delta,
+		);
+		vrm.scene.position.x = THREE.MathUtils.damp(
+			vrm.scene.position.x,
+			targetPositionX,
+			4,
+			delta,
+		);
+		vrm.scene.position.y = THREE.MathUtils.damp(
+			vrm.scene.position.y,
+			targetPositionY,
+			4,
+			delta,
+		);
+		applyBodyPose(
+			bodyRigRef.current,
+			faceState,
+			state,
+			time,
+			speechEnergy,
+			delta,
+		);
+
+		for (const preset of MOUTH_PRESETS) {
+			dampExpressionValue(
+				vrm,
+				preset,
+				THREE.MathUtils.clamp(mouthTargets[preset], 0, 1),
+				delta,
+				18,
+			);
+		}
+
+		dampExpressionValue(vrm, "blink", blink, delta, 22);
+
+		for (const expressionName of FACE_EXPRESSION_NAMES) {
+			dampExpressionValue(
+				vrm,
+				expressionName,
+				faceTargets[expressionName],
+				delta,
+				expressionName === "surprised" ? 12 : 10,
+			);
+		}
+
+		vrm.update(delta);
+	});
+
+	if (!vrm) return null;
+
+	return <primitive object={vrm.scene} scale={1.1} />;
 }
 
 type AvatarCanvasProps = {
-  state: AvatarState;
+	state: AvatarState;
+	emotion: Emotion;
 };
 
-export default function AvatarCanvas({ state }: AvatarCanvasProps) {
-  return (
-    <div className="w-full h-[400px] md:h-[450px] overflow-hidden rounded-2xl  bg-muted/40">
-      <Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[1, 1, 1]} intensity={1.5} />
-        <VRMAvatar state={state} />
-      </Canvas>
-    </div>
-  );
+export default function AvatarCanvas({ state, emotion }: AvatarCanvasProps) {
+	return (
+		<div className="w-full h-[400px] md:h-[450px] overflow-hidden rounded-2xl  bg-muted/40">
+			<Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
+				<ambientLight intensity={1.2} />
+				<directionalLight position={[1, 1, 1]} intensity={1.5} />
+				<VRMAvatar state={state} emotion={emotion} />
+			</Canvas>
+		</div>
+	);
 }
