@@ -45,6 +45,16 @@ type BodyBoneName = (typeof BODY_BONE_NAMES)[number];
 type FaceTargets = Record<FaceExpressionName, number>;
 type BoneRotationTargets = Partial<Record<RotationAxis, number>>;
 type BodyPoseTargets = Partial<Record<BodyBoneName, BoneRotationTargets>>;
+type BodyRig = Partial<
+	Record<
+		BodyBoneName,
+		{
+			bone: THREE.Object3D;
+			restQuaternion: THREE.Quaternion;
+			targetQuaternion: THREE.Quaternion;
+		}
+	>
+>;
 type SpeechState = {
 	active: boolean;
 	current: MouthPreset;
@@ -129,6 +139,11 @@ const setFaceTarget = (
 	targets[expressionName] = THREE.MathUtils.clamp(value, 0, 1);
 };
 
+const applySideLook = (targets: FaceTargets, amount: number) => {
+	setFaceTarget(targets, "lookLeft", Math.max(0, amount));
+	setFaceTarget(targets, "lookRight", Math.max(0, -amount));
+};
+
 const resetExpressions = (targets: FaceTargets) => {
 	for (const expressionName of FACE_EXPRESSION_NAMES) {
 		targets[expressionName] = 0;
@@ -152,14 +167,13 @@ const applySadFace = (targets: FaceTargets) => {
 };
 
 const applyAnxiousFace = (targets: FaceTargets, time: number) => {
-	setFaceTarget(targets, "sad", 0.2);
-	setFaceTarget(targets, "surprised", 0.14);
+	setFaceTarget(targets, "sad", 0.18);
+	setFaceTarget(targets, "surprised", 0.12);
 	setFaceTarget(targets, "relaxed", 0.08);
-	setFaceTarget(targets, "lookDown", 0.04);
-	setFaceTarget(
+	setFaceTarget(targets, "lookDown", 0.05);
+	applySideLook(
 		targets,
-		Math.sin(time * 1.5) > 0 ? "lookLeft" : "lookRight",
-		0.08,
+		Math.sin(time * 1.1) * 0.04 + Math.sin(time * 0.4 + 0.6) * 0.02,
 	);
 };
 
@@ -170,13 +184,9 @@ const applyAngryFace = (targets: FaceTargets) => {
 };
 
 const applyConfusedFace = (targets: FaceTargets, time: number) => {
-	setFaceTarget(targets, "surprised", 0.22);
+	setFaceTarget(targets, "surprised", 0.18);
 	setFaceTarget(targets, "relaxed", 0.12);
-	setFaceTarget(
-		targets,
-		Math.sin(time * 0.75) > 0 ? "lookLeft" : "lookRight",
-		0.07,
-	);
+	applySideLook(targets, Math.sin(time * 0.55 + 0.4) * 0.05);
 	setFaceTarget(targets, "lookDown", 0.04);
 };
 
@@ -187,14 +197,10 @@ const applyEmpatheticFace = (targets: FaceTargets) => {
 };
 
 const applyThinkingFace = (targets: FaceTargets, time: number) => {
-	setFaceTarget(targets, "relaxed", 0.16);
-	setFaceTarget(targets, "lookDown", 0.14);
-	setFaceTarget(
-		targets,
-		Math.sin(time * 0.7) > 0 ? "lookLeft" : "lookRight",
-		0.05,
-	);
-	setFaceTarget(targets, "surprised", 0.04);
+	setFaceTarget(targets, "relaxed", 0.14);
+	setFaceTarget(targets, "lookDown", 0.12);
+	applySideLook(targets, Math.sin(time * 0.42 + 0.2) * 0.035);
+	setFaceTarget(targets, "surprised", 0.03);
 };
 
 const applyTalkingState = (targets: FaceTargets, speechEnergy: number) => {
@@ -419,32 +425,32 @@ const setBoneTarget = (
 };
 
 const createBaseBodyPose = (time: number): BodyPoseTargets => {
-	const torsoSway = Math.sin(time * 0.8) * 0.03;
-	const torsoBreath = Math.sin(time * 1.4) * 0.02;
+	const torsoSway = Math.sin(time * 0.7) * 0.02;
+	const torsoBreath = Math.sin(time * 1.2) * 0.014;
 
 	const targets: BodyPoseTargets = {};
 
 	setBoneTarget(targets, "hips", { x: 0, y: torsoSway * 0.35, z: 0 });
 	setBoneTarget(targets, "spine", {
-		x: 0.03 + torsoBreath * 0.3,
-		y: torsoSway * 0.35,
+		x: 0.025 + torsoBreath * 0.28,
+		y: torsoSway * 0.28,
 		z: 0,
 	});
 	setBoneTarget(targets, "chest", {
-		x: 0.04 + torsoBreath * 0.45,
-		y: torsoSway * 0.55,
+		x: 0.03 + torsoBreath * 0.38,
+		y: torsoSway * 0.45,
 		z: 0,
 	});
-	setBoneTarget(targets, "neck", { x: -0.02, y: torsoSway * 0.5, z: 0 });
-	setBoneTarget(targets, "head", { x: 0.02, y: torsoSway * 0.7, z: 0 });
-	setBoneTarget(targets, "leftShoulder", { z: 0.18 });
-	setBoneTarget(targets, "rightShoulder", { z: -0.18 });
-	setBoneTarget(targets, "leftUpperArm", { x: 0.03, z: 1.02 });
-	setBoneTarget(targets, "rightUpperArm", { x: -0.03, z: -1.02 });
-	setBoneTarget(targets, "leftLowerArm", { z: 0.18 });
-	setBoneTarget(targets, "rightLowerArm", { z: -0.18 });
-	setBoneTarget(targets, "leftHand", { x: 0.08, z: 0.06 });
-	setBoneTarget(targets, "rightHand", { x: -0.08, z: -0.06 });
+	setBoneTarget(targets, "neck", { x: -0.015, y: torsoSway * 0.4, z: 0 });
+	setBoneTarget(targets, "head", { x: 0.015, y: torsoSway * 0.52, z: 0 });
+	setBoneTarget(targets, "leftShoulder", { z: 0.1 });
+	setBoneTarget(targets, "rightShoulder", { z: -0.1 });
+	setBoneTarget(targets, "leftUpperArm", { x: 0.02, z: 0.78 });
+	setBoneTarget(targets, "rightUpperArm", { x: -0.02, z: -0.78 });
+	setBoneTarget(targets, "leftLowerArm", { z: 0.06 });
+	setBoneTarget(targets, "rightLowerArm", { z: -0.06 });
+	setBoneTarget(targets, "leftHand", { x: 0.03, z: 0.02 });
+	setBoneTarget(targets, "rightHand", { x: -0.03, z: -0.02 });
 
 	return targets;
 };
@@ -480,92 +486,92 @@ const getBodyPoseTargets = (
 	const targets = createBaseBodyPose(time);
 	const talking = state === "talking";
 	const talkDrift = talking
-		? Math.sin(time * 3.4) * (0.018 + speechEnergy * 0.04)
+		? Math.sin(time * 2.6) * (0.008 + speechEnergy * 0.02)
 		: 0;
 	const talkGesture = talking
-		? Math.sin(time * 4.8) * (0.02 + speechEnergy * 0.045)
+		? Math.sin(time * 3.4) * (0.01 + speechEnergy * 0.018)
 		: 0;
 
 	switch (faceState) {
 		case "thinking":
-			offsetBoneTarget(targets, "chest", { x: -0.02, y: 0.05 });
-			offsetBoneTarget(targets, "neck", { x: -0.08, y: 0.08 });
-			offsetBoneTarget(targets, "head", { x: -0.1, y: 0.12, z: -0.08 });
-			offsetBoneTarget(targets, "leftShoulder", { z: 0.05 });
-			offsetBoneTarget(targets, "rightShoulder", { z: -0.02 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: -0.12 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: 0.08 });
+			offsetBoneTarget(targets, "chest", { x: -0.015, y: 0.03 });
+			offsetBoneTarget(targets, "neck", { x: -0.05, y: 0.05 });
+			offsetBoneTarget(targets, "head", { x: -0.06, y: 0.08, z: -0.05 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.03 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.015 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.08 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.05 });
 			break;
 		case "happy":
-			offsetBoneTarget(targets, "chest", { x: 0.05 });
-			offsetBoneTarget(targets, "neck", { x: 0.02 });
-			offsetBoneTarget(targets, "head", { x: 0.03, z: -0.04 });
-			offsetBoneTarget(targets, "leftShoulder", { z: -0.05 });
-			offsetBoneTarget(targets, "rightShoulder", { z: 0.05 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: -0.16 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: 0.16 });
-			break;
-		case "sad":
-			offsetBoneTarget(targets, "spine", { x: -0.04 });
-			offsetBoneTarget(targets, "chest", { x: -0.08 });
-			offsetBoneTarget(targets, "neck", { x: -0.05 });
-			offsetBoneTarget(targets, "head", { x: -0.08, z: 0.03 });
-			offsetBoneTarget(targets, "leftShoulder", { z: 0.07 });
-			offsetBoneTarget(targets, "rightShoulder", { z: -0.07 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: 0.08 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: -0.08 });
-			break;
-		case "anxious":
-			offsetBoneTarget(targets, "chest", {
-				x: -0.03,
-				y: Math.sin(time * 1.7) * 0.04,
-			});
-			offsetBoneTarget(targets, "neck", {
-				x: -0.05,
-				y: Math.sin(time * 2.2) * 0.06,
-			});
-			offsetBoneTarget(targets, "head", {
-				x: -0.03,
-				y: Math.sin(time * 2.4) * 0.08,
-				z: Math.sin(time * 2.8) * 0.025,
-			});
-			offsetBoneTarget(targets, "leftShoulder", { z: 0.09 });
-			offsetBoneTarget(targets, "rightShoulder", { z: -0.09 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: 0.12 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: -0.12 });
-			offsetBoneTarget(targets, "leftLowerArm", { z: 0.08 });
-			offsetBoneTarget(targets, "rightLowerArm", { z: -0.08 });
-			break;
-		case "angry":
-			offsetBoneTarget(targets, "spine", { x: 0.02 });
-			offsetBoneTarget(targets, "chest", { x: 0.08 });
-			offsetBoneTarget(targets, "neck", { x: 0.04 });
-			offsetBoneTarget(targets, "head", { x: 0.02, y: 0.04 });
+			offsetBoneTarget(targets, "chest", { x: 0.03 });
+			offsetBoneTarget(targets, "neck", { x: 0.015 });
+			offsetBoneTarget(targets, "head", { x: 0.02, z: -0.025 });
 			offsetBoneTarget(targets, "leftShoulder", { z: -0.03 });
 			offsetBoneTarget(targets, "rightShoulder", { z: 0.03 });
 			offsetBoneTarget(targets, "leftUpperArm", { z: -0.1 });
 			offsetBoneTarget(targets, "rightUpperArm", { z: 0.1 });
-			offsetBoneTarget(targets, "leftLowerArm", { z: 0.14 });
-			offsetBoneTarget(targets, "rightLowerArm", { z: -0.14 });
+			break;
+		case "sad":
+			offsetBoneTarget(targets, "spine", { x: -0.03 });
+			offsetBoneTarget(targets, "chest", { x: -0.05 });
+			offsetBoneTarget(targets, "neck", { x: -0.04 });
+			offsetBoneTarget(targets, "head", { x: -0.05, z: 0.02 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.04 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.04 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.05 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.05 });
+			break;
+		case "anxious":
+			offsetBoneTarget(targets, "chest", {
+				x: -0.02,
+				y: Math.sin(time * 1.2) * 0.025,
+			});
+			offsetBoneTarget(targets, "neck", {
+				x: -0.035,
+				y: Math.sin(time * 1.5) * 0.035,
+			});
+			offsetBoneTarget(targets, "head", {
+				x: -0.02,
+				y: Math.sin(time * 1.7) * 0.045,
+				z: Math.sin(time * 1.9) * 0.012,
+			});
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.055 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.055 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.08 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.08 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.04 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.04 });
+			break;
+		case "angry":
+			offsetBoneTarget(targets, "spine", { x: 0.015 });
+			offsetBoneTarget(targets, "chest", { x: 0.05 });
+			offsetBoneTarget(targets, "neck", { x: 0.025 });
+			offsetBoneTarget(targets, "head", { x: 0.015, y: 0.03 });
+			offsetBoneTarget(targets, "leftShoulder", { z: -0.02 });
+			offsetBoneTarget(targets, "rightShoulder", { z: 0.02 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.06 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.06 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.08 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.08 });
 			break;
 		case "confused":
-			offsetBoneTarget(targets, "chest", { y: 0.04 });
-			offsetBoneTarget(targets, "neck", { y: 0.08 });
-			offsetBoneTarget(targets, "head", { x: -0.02, y: 0.1, z: -0.12 });
-			offsetBoneTarget(targets, "leftShoulder", { z: 0.03 });
-			offsetBoneTarget(targets, "rightShoulder", { z: -0.08 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: -0.04 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: 0.1 });
+			offsetBoneTarget(targets, "chest", { y: 0.03 });
+			offsetBoneTarget(targets, "neck", { y: 0.05 });
+			offsetBoneTarget(targets, "head", { x: -0.015, y: 0.06, z: -0.08 });
+			offsetBoneTarget(targets, "leftShoulder", { z: 0.02 });
+			offsetBoneTarget(targets, "rightShoulder", { z: -0.05 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: -0.03 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: 0.06 });
 			break;
 		case "empathetic":
-			offsetBoneTarget(targets, "spine", { x: -0.015 });
-			offsetBoneTarget(targets, "chest", { x: -0.03 });
-			offsetBoneTarget(targets, "neck", { x: -0.02, y: -0.05 });
-			offsetBoneTarget(targets, "head", { x: -0.04, y: -0.06, z: 0.05 });
-			offsetBoneTarget(targets, "leftUpperArm", { z: 0.06 });
-			offsetBoneTarget(targets, "rightUpperArm", { z: -0.06 });
-			offsetBoneTarget(targets, "leftLowerArm", { z: 0.06 });
-			offsetBoneTarget(targets, "rightLowerArm", { z: -0.06 });
+			offsetBoneTarget(targets, "spine", { x: -0.01 });
+			offsetBoneTarget(targets, "chest", { x: -0.02 });
+			offsetBoneTarget(targets, "neck", { x: -0.015, y: -0.03 });
+			offsetBoneTarget(targets, "head", { x: -0.03, y: -0.04, z: 0.03 });
+			offsetBoneTarget(targets, "leftUpperArm", { z: 0.04 });
+			offsetBoneTarget(targets, "rightUpperArm", { z: -0.04 });
+			offsetBoneTarget(targets, "leftLowerArm", { z: 0.03 });
+			offsetBoneTarget(targets, "rightLowerArm", { z: -0.03 });
 			break;
 		default:
 			break;
@@ -575,14 +581,14 @@ const getBodyPoseTargets = (
 		offsetBoneTarget(targets, "chest", { y: talkDrift * 0.8 });
 		offsetBoneTarget(targets, "neck", { y: talkDrift * 1.1 });
 		offsetBoneTarget(targets, "head", {
-			x: talkDrift * 0.4,
-			y: talkDrift * 1.4,
-			z: talkDrift * 0.35,
+			x: talkDrift * 0.25,
+			y: talkDrift * 0.9,
+			z: talkDrift * 0.22,
 		});
 		offsetBoneTarget(targets, "leftLowerArm", { z: talkGesture });
 		offsetBoneTarget(targets, "rightLowerArm", { z: -talkGesture });
-		offsetBoneTarget(targets, "leftHand", { x: talkGesture * 0.7 });
-		offsetBoneTarget(targets, "rightHand", { x: -talkGesture * 0.7 });
+		offsetBoneTarget(targets, "leftHand", { x: talkGesture * 0.35 });
+		offsetBoneTarget(targets, "rightHand", { x: -talkGesture * 0.35 });
 	}
 
 	return targets;
@@ -593,23 +599,13 @@ const getHumanoidBone = (vrm: VRM, boneName: BodyBoneName) =>
 	vrm.humanoid?.getRawBoneNode?.(boneName) ??
 	null;
 
-const dampBoneRotation = (
-	bone: THREE.Object3D,
-	axis: RotationAxis,
-	target: number,
-	delta: number,
-	speed = 7,
-) => {
-	bone.rotation[axis] = THREE.MathUtils.damp(
-		bone.rotation[axis],
-		target,
-		speed,
-		delta,
-	);
-};
+const bodyPoseEuler = new THREE.Euler(0, 0, 0, "XYZ");
+const bodyPoseQuaternion = new THREE.Quaternion();
+const getBlendAlpha = (delta: number, speed: number) =>
+	1 - Math.exp(-speed * delta);
 
 const applyBodyPose = (
-	vrm: VRM,
+	bodyRig: BodyRig,
 	faceState: FaceState,
 	state: AvatarState,
 	time: number,
@@ -619,20 +615,21 @@ const applyBodyPose = (
 	const poseTargets = getBodyPoseTargets(faceState, state, time, speechEnergy);
 
 	for (const boneName of BODY_BONE_NAMES) {
-		const bone = getHumanoidBone(vrm, boneName);
-		if (!bone) continue;
+		const rig = bodyRig[boneName];
+		if (!rig) continue;
 
 		const targets = poseTargets[boneName];
-
-		for (const axis of ROTATION_AXES) {
-			dampBoneRotation(
-				bone,
-				axis,
-				targets?.[axis] ?? 0,
+		bodyPoseEuler.set(targets?.x ?? 0, targets?.y ?? 0, targets?.z ?? 0, "XYZ");
+		rig.targetQuaternion
+			.copy(rig.restQuaternion)
+			.multiply(bodyPoseQuaternion.setFromEuler(bodyPoseEuler));
+		rig.bone.quaternion.slerp(
+			rig.targetQuaternion,
+			getBlendAlpha(
 				delta,
-				boneName === "head" || boneName === "neck" ? 8 : 6,
-			);
-		}
+				boneName === "head" || boneName === "neck" ? 7.5 : 5.2,
+			),
+		);
 	}
 };
 
@@ -644,6 +641,7 @@ function VRMAvatar({
 	emotion: Emotion;
 }) {
 	const [vrm, setVrm] = useState<VRM | null>(null);
+	const bodyRigRef = useRef<BodyRig>({});
 	const blinkWindowRef = useRef({
 		start: 0,
 		end: 0,
@@ -672,6 +670,20 @@ function VRMAvatar({
 
 				loadedVrm.scene.rotation.set(0, Math.PI, 0);
 				loadedVrm.scene.position.set(0, BASE_POSITION_Y, 0);
+				const bodyRig: BodyRig = {};
+
+				for (const boneName of BODY_BONE_NAMES) {
+					const bone = getHumanoidBone(loadedVrm, boneName);
+					if (!bone) continue;
+
+					bodyRig[boneName] = {
+						bone,
+						restQuaternion: bone.quaternion.clone(),
+						targetQuaternion: bone.quaternion.clone(),
+					};
+				}
+
+				bodyRigRef.current = bodyRig;
 				setVrm(loadedVrm);
 			},
 			undefined,
@@ -797,7 +809,7 @@ function VRMAvatar({
 			BASE_POSITION_Y +
 			basePose.positionYOffset +
 			breathing * basePose.breathingScale +
-			speechEnergy * 0.01;
+			speechEnergy * 0.006;
 
 		vrm.scene.rotation.x = THREE.MathUtils.damp(
 			vrm.scene.rotation.x,
@@ -829,7 +841,14 @@ function VRMAvatar({
 			4,
 			delta,
 		);
-		applyBodyPose(vrm, faceState, state, time, speechEnergy, delta);
+		applyBodyPose(
+			bodyRigRef.current,
+			faceState,
+			state,
+			time,
+			speechEnergy,
+			delta,
+		);
 
 		for (const preset of MOUTH_PRESETS) {
 			dampExpressionValue(
