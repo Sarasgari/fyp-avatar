@@ -2,11 +2,16 @@
 
 import { useThread } from "@assistant-ui/react";
 import { useEffect, useRef } from "react";
-import type { AvatarState, Emotion } from "@/lib/avatar-state";
+import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
+import {
+	BODY_STATE_HOLD_MS,
+	resolveBodyStateFromConversation,
+} from "@/lib/avatar-state";
 import { getStructuredChatResponseFromMetadata } from "@/lib/chat-response";
 import {
 	DEFAULT_MIN_TTS_CHUNK_LENGTH,
 	extractSpeakableChunks,
+	INITIAL_TTS_CHUNK_LENGTH,
 } from "@/lib/tts/extract-speakable-chunks";
 import { requestTTS } from "@/lib/tts/request-tts";
 import { useVoiceTranscriptStore } from "@/lib/tts/voice-transcript-store";
@@ -16,11 +21,10 @@ import {
 	getRevealTextForTime,
 } from "@/lib/tts/word-reveal";
 
-const EMOTION_RESTORE_DURATION_MS = 1200;
-
 type VoiceControllerProps = {
-	onAvatarStateChange?: (state: AvatarState) => void;
-	onEmotionChange?: (emotion: Emotion) => void;
+	onEmotionStateChange?: (emotion: EmotionState) => void;
+	onBodyStateChange?: (state: BodyState) => void;
+	onSpeechStateChange?: (state: SpeechState) => void;
 	stopSpeechRequest?: number;
 };
 
@@ -66,12 +70,13 @@ type VoiceSession = {
 	hasStartedPlayback: boolean;
 	scheduledTranscript: string;
 	syncFrameId: number | null;
-	lastAvatarState: AvatarState;
-	lastEmotion: Emotion;
-	detectedEmotion: Emotion;
-	detectedAvatarState: AvatarState;
+	lastEmotionState: EmotionState;
+	lastBodyState: BodyState;
+	lastSpeechState: SpeechState;
+	detectedEmotionState: EmotionState;
+	detectedBodyState: BodyState;
 	detectedMessageId: string | null;
-	restoreEmotionTimeoutId: number | null;
+	restoreBodyTimeoutId: number | null;
 };
 
 const getLatestAssistantMessage = (
@@ -87,7 +92,18 @@ const getLatestAssistantMessage = (
 	return null;
 };
 
-const getSpeakableAssistantText = (message: AssistantMessageLike | null) => {
+const getLatestUserMessage = (messages: readonly AssistantMessageLike[]) => {
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (message.role === "user") {
+			return message;
+		}
+	}
+
+	return null;
+};
+
+const getSpeakableMessageText = (message: AssistantMessageLike | null) => {
 	if (!message?.content) return "";
 
 	return message.content
@@ -98,6 +114,9 @@ const getSpeakableAssistantText = (message: AssistantMessageLike | null) => {
 		.map((part) => part.text)
 		.join("");
 };
+
+const getSpeakableAssistantText = (message: AssistantMessageLike | null) =>
+	getSpeakableMessageText(message);
 
 const getAssistantResponseMetadata = (message: AssistantMessageLike | null) => {
 	if (!message) {
@@ -116,8 +135,9 @@ const isFreshAssistantResponse = (
 	fullAssistantText.length > session.baselineAssistantTextLength;
 
 export const ThreadVoiceController = ({
-	onAvatarStateChange,
-	onEmotionChange,
+	onEmotionStateChange,
+	onBodyStateChange,
+	onSpeechStateChange,
 	stopSpeechRequest = 0,
 }: VoiceControllerProps) => {
 	const isRunning = useThread((thread) => thread.isRunning);
@@ -142,65 +162,76 @@ export const ThreadVoiceController = ({
 		hasStartedPlayback: false,
 		scheduledTranscript: "",
 		syncFrameId: null,
-		lastAvatarState: "idle",
-		lastEmotion: "neutral",
-		detectedEmotion: "neutral",
-		detectedAvatarState: "idle",
+		lastEmotionState: "neutral",
+		lastBodyState: "idleDance",
+		lastSpeechState: "silent",
+		detectedEmotionState: "neutral",
+		detectedBodyState: "idleDance",
 		detectedMessageId: null,
-		restoreEmotionTimeoutId: null,
+		restoreBodyTimeoutId: null,
 	});
 
-	const setAvatarState = (nextState: AvatarState) => {
+	const setEmotionState = (nextState: EmotionState) => {
 		const session = sessionRef.current;
-		if (session.lastAvatarState === nextState) return;
+		if (session.lastEmotionState === nextState) return;
 
-		session.lastAvatarState = nextState;
-		onAvatarStateChange?.(nextState);
+		session.lastEmotionState = nextState;
+		onEmotionStateChange?.(nextState);
 	};
 
-	const setEmotion = (nextEmotion: Emotion) => {
+	const setBodyState = (nextState: BodyState) => {
 		const session = sessionRef.current;
-		if (session.lastEmotion === nextEmotion) return;
+		if (session.lastBodyState === nextState) return;
 
-		session.lastEmotion = nextEmotion;
-		onEmotionChange?.(nextEmotion);
+		session.lastBodyState = nextState;
+		onBodyStateChange?.(nextState);
 	};
 
-	const clearEmotionRestoreTimeout = () => {
+	const setSpeechState = (nextState: SpeechState) => {
+		const session = sessionRef.current;
+		if (session.lastSpeechState === nextState) return;
+
+		session.lastSpeechState = nextState;
+		onSpeechStateChange?.(nextState);
+	};
+
+	const clearBodyRestoreTimeout = () => {
 		const session = sessionRef.current;
 
-		if (session.restoreEmotionTimeoutId !== null) {
-			window.clearTimeout(session.restoreEmotionTimeoutId);
-			session.restoreEmotionTimeoutId = null;
+		if (session.restoreBodyTimeoutId !== null) {
+			window.clearTimeout(session.restoreBodyTimeoutId);
+			session.restoreBodyTimeoutId = null;
 		}
 	};
 
-	const restoreDetectedEmotionThenIdle = () => {
+	const restoreDetectedBodyThenIdleDance = () => {
 		const session = sessionRef.current;
 
-		clearEmotionRestoreTimeout();
+		clearBodyRestoreTimeout();
+		setSpeechState("silent");
 
-		if (session.detectedAvatarState !== "idle") {
-			setAvatarState(session.detectedAvatarState);
-			session.restoreEmotionTimeoutId = window.setTimeout(() => {
-				sessionRef.current.restoreEmotionTimeoutId = null;
-				setAvatarState("idle");
-			}, EMOTION_RESTORE_DURATION_MS);
+		if (session.detectedBodyState !== "idleDance") {
+			setBodyState(session.detectedBodyState);
+			session.restoreBodyTimeoutId = window.setTimeout(() => {
+				sessionRef.current.restoreBodyTimeoutId = null;
+				setBodyState("idleDance");
+			}, BODY_STATE_HOLD_MS[session.detectedBodyState]);
 			return;
 		}
 
-		setAvatarState("idle");
+		setBodyState("idleDance");
 	};
 
-	const syncAvatarState = () => {
+	const syncCharacterState = () => {
 		const session = sessionRef.current;
 
-		if (session.restoreEmotionTimeoutId !== null) {
+		if (session.restoreBodyTimeoutId !== null) {
 			return;
 		}
 
 		if (!session.active) {
-			setAvatarState("idle");
+			setBodyState("idleDance");
+			setSpeechState("silent");
 			return;
 		}
 
@@ -211,11 +242,13 @@ export const ThreadVoiceController = ({
 				session.queue.length > 0 ||
 				session.pendingTtsCount > 0)
 		) {
-			setAvatarState("talking");
+			setBodyState(session.detectedBodyState);
+			setSpeechState("talking");
 			return;
 		}
 
-		setAvatarState("thinking");
+		setBodyState("thinking");
+		setSpeechState("silent");
 	};
 
 	const revokeChunkUrl = (chunk: QueuedAudioChunk) => {
@@ -268,7 +301,7 @@ export const ThreadVoiceController = ({
 			session.pendingTtsCount > 0 ||
 			session.queue.length > 0
 		) {
-			syncAvatarState();
+			syncCharacterState();
 			return;
 		}
 
@@ -286,7 +319,7 @@ export const ThreadVoiceController = ({
 		session.hasStartedPlayback = false;
 		session.scheduledTranscript = "";
 
-		restoreDetectedEmotionThenIdle();
+		restoreDetectedBodyThenIdleDance();
 	};
 
 	const tryPlayNext = () => {
@@ -301,6 +334,7 @@ export const ThreadVoiceController = ({
 		}
 
 		const audio = new Audio(nextChunk.objectUrl);
+		audio.preload = "auto";
 		let hasStartedTranscriptSync = false;
 		let lastDisplayedText = nextChunk.transcriptStart;
 
@@ -374,7 +408,7 @@ export const ThreadVoiceController = ({
 		session.audio = audio;
 		session.isPlaying = true;
 		session.hasStartedPlayback = true;
-		syncAvatarState();
+		syncCharacterState();
 
 		audio.onloadedmetadata = startTranscriptSync;
 		audio.onended = finishPlayback;
@@ -421,7 +455,7 @@ export const ThreadVoiceController = ({
 		);
 		session.queue.push(queueItem);
 		session.pendingTtsCount += 1;
-		syncAvatarState();
+		syncCharacterState();
 
 		// Fire TTS requests as soon as chunks are ready, but keep playback ordered
 		// by only ever playing the first ready item in the queue.
@@ -448,7 +482,7 @@ export const ThreadVoiceController = ({
 				queuedChunk.status = "ready";
 				queuedChunk.objectUrl = URL.createObjectURL(audioBlob);
 				tryPlayNext();
-				syncAvatarState();
+				syncCharacterState();
 			})
 			.catch((error) => {
 				const activeSession = sessionRef.current;
@@ -489,7 +523,12 @@ export const ThreadVoiceController = ({
 		const { chunks, remaining } = extractSpeakableChunks({
 			buffer: session.buffer,
 			final,
-			minChunkLength: DEFAULT_MIN_TTS_CHUNK_LENGTH,
+			minChunkLength:
+				session.hasStartedPlayback ||
+				session.queue.length > 0 ||
+				session.pendingTtsCount > 0
+					? DEFAULT_MIN_TTS_CHUNK_LENGTH
+					: INITIAL_TTS_CHUNK_LENGTH,
 		});
 
 		session.buffer = remaining;
@@ -503,8 +542,9 @@ export const ThreadVoiceController = ({
 		const session = sessionRef.current;
 
 		if (!session.active && !session.isPlaying && session.queue.length === 0) {
-			clearEmotionRestoreTimeout();
-			setAvatarState("idle");
+			clearBodyRestoreTimeout();
+			setSpeechState("silent");
+			setBodyState("idleDance");
 			return;
 		}
 
@@ -528,7 +568,7 @@ export const ThreadVoiceController = ({
 		const session = sessionRef.current;
 		const latestAssistantMessage = getLatestAssistantMessage(messagesSnapshot);
 
-		clearEmotionRestoreTimeout();
+		clearBodyRestoreTimeout();
 		stopCurrentAudio();
 		clearQueuedAudio();
 
@@ -546,13 +586,14 @@ export const ThreadVoiceController = ({
 		session.nextQueueId = 1;
 		session.hasStartedPlayback = false;
 		session.scheduledTranscript = "";
-		session.detectedEmotion = "neutral";
-		session.detectedAvatarState = "idle";
+		session.detectedEmotionState = "neutral";
+		session.detectedBodyState = "idleDance";
 		session.detectedMessageId = null;
 		useVoiceTranscriptStore.getState().clear();
 
-		setEmotion("neutral");
-		setAvatarState("thinking");
+		setEmotionState("neutral");
+		setBodyState("thinking");
+		setSpeechState("silent");
 	};
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: The streaming/TTS session is stored in refs on purpose so helper identity changes do not restart playback bookkeeping.
@@ -569,6 +610,9 @@ export const ThreadVoiceController = ({
 			const latestAssistantMessage = getLatestAssistantMessage(messages);
 
 			if (latestAssistantMessage) {
+				const latestUserMessage = getLatestUserMessage(messages);
+				const latestUserText = getSpeakableMessageText(latestUserMessage);
+
 				if (session.currentAssistantMessageId !== latestAssistantMessage.id) {
 					session.currentAssistantMessageId = latestAssistantMessage.id;
 					session.processedTextLength =
@@ -596,9 +640,13 @@ export const ThreadVoiceController = ({
 						session.detectedMessageId !== latestAssistantMessage.id
 					) {
 						session.detectedMessageId = latestAssistantMessage.id;
-						session.detectedEmotion = metadata.emotion;
-						session.detectedAvatarState = metadata.avatarState;
-						setEmotion(metadata.emotion);
+						session.detectedEmotionState = metadata.emotion;
+						session.detectedBodyState = resolveBodyStateFromConversation({
+							emotion: metadata.emotion,
+							replyText: metadata.reply,
+							userText: latestUserText,
+						});
+						setEmotionState(metadata.emotion);
 					}
 				}
 
@@ -628,7 +676,7 @@ export const ThreadVoiceController = ({
 				flushBufferedText(true);
 				finalizeIfDone();
 			} else {
-				syncAvatarState();
+				syncCharacterState();
 			}
 		}
 
@@ -646,13 +694,14 @@ export const ThreadVoiceController = ({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Cleanup should run once on unmount while operating on the current refs-backed audio session.
 	useEffect(() => {
 		return () => {
-			clearEmotionRestoreTimeout();
+			clearBodyRestoreTimeout();
 			stopCurrentAudio();
 			clearQueuedAudio();
 			sessionRef.current.active = false;
 			useVoiceTranscriptStore.getState().clear();
-			setEmotion("neutral");
-			setAvatarState("idle");
+			setEmotionState("neutral");
+			setBodyState("idleDance");
+			setSpeechState("silent");
 		};
 	}, []);
 
