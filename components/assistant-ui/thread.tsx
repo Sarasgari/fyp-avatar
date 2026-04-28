@@ -33,20 +33,22 @@ import { ThreadVoiceController } from "@/components/assistant-ui/thread-voice-co
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
-import type { AvatarState, Emotion } from "@/lib/avatar-state";
+import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 
 type ThreadProps = {
 	onUserSend?: () => void;
-	onAvatarStateChange?: (state: AvatarState) => void;
-	onEmotionChange?: (emotion: Emotion) => void;
+	onEmotionStateChange?: (emotion: EmotionState) => void;
+	onBodyStateChange?: (state: BodyState) => void;
+	onSpeechStateChange?: (state: SpeechState) => void;
 	stopSpeechRequest?: number;
 };
 
 export const Thread: FC<ThreadProps> = ({
 	onUserSend,
-	onAvatarStateChange,
-	onEmotionChange,
+	onEmotionStateChange,
+	onBodyStateChange,
+	onSpeechStateChange,
 	stopSpeechRequest,
 }) => {
 	return (
@@ -57,8 +59,9 @@ export const Thread: FC<ThreadProps> = ({
 			}}
 		>
 			<ThreadVoiceController
-				onAvatarStateChange={onAvatarStateChange}
-				onEmotionChange={onEmotionChange}
+				onEmotionStateChange={onEmotionStateChange}
+				onBodyStateChange={onBodyStateChange}
+				onSpeechStateChange={onSpeechStateChange}
 				stopSpeechRequest={stopSpeechRequest}
 			/>
 			<ThreadPrimitive.Viewport
@@ -103,7 +106,7 @@ const ThreadWelcome: FC = () => {
 	return (
 		<div className="aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-4 pt-2 pb-4">
 			<div className="aui-thread-welcome-message">
-				<h1 className="font-semibold text-3xl tracking-tight">Hi Sara</h1>
+				<h1 className="font-semibold text-3xl tracking-tight">Hi there</h1>
 				<p className="mt-1 text-muted-foreground text-lg">Ask me anything.</p>
 			</div>
 

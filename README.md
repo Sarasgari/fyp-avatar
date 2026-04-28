@@ -1,49 +1,51 @@
-This is the [assistant-ui](https://github.com/assistant-ui/assistant-ui) minimal starter project.
+# Avatar Assistant
 
-## Getting Started
+An expressive Next.js chat app with an animated avatar, streamed assistant replies, and OpenAI-powered text-to-speech.
 
-### 1. Configure Environment Variables
+## Setup
 
-Add your OpenAI API key to a `.env.local` file:
-
-```
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-### 2. Install Dependencies
+1. Install dependencies:
 
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
 ```
 
-### 3. Run the Development Server
+2. Create a `.env.local` file:
+
+```bash
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+3. Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Development
-
-You can start customizing the UI by modifying components in the `components/assistant-ui/` directory.
-
-To add more assistant-ui components:
+## Scripts
 
 ```bash
-npx assistant-ui add
+npm run dev
+npm run lint
+npm run lint:fix
+npm test
+npm run typecheck
+npm run build
 ```
 
-### Key Files
+## Production Notes
 
-- `app/assistant.tsx` - Sets up the runtime provider
-- `app/api/chat/route.ts` - Chat API endpoint
-- `components/assistant-ui/thread.tsx` - Chat thread component
+- The chat and TTS routes include request validation, request IDs, no-store headers, origin allowlisting, and rate limiting.
+- Builds no longer depend on downloading remote Google Fonts.
+- GitHub Actions runs lint, typecheck, tests, and build on every pull request.
+- Set `ALLOWED_ORIGINS` in deployed environments to block cross-site POSTs to the chat and TTS APIs.
+- If `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured, rate limiting uses Upstash Redis REST. Otherwise it falls back to process-local memory.
+
+## Important Files
+
+- `app/api/chat/route.ts`: chat request validation and assistant response generation
+- `app/api/tts/route.ts`: text-to-speech endpoint
+- `lib/server/api.ts`: shared API guardrails and response helpers
+- `components/ui/avatar-canvas.tsx`: VRM avatar rendering and animation
