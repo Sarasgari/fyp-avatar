@@ -16,8 +16,26 @@ import {
 	normalizeStructuredChatResponse,
 	type StructuredChatResponse,
 } from "@/lib/chat-response";
+import {
+	applyResponseHeaders,
+	consumeRateLimit,
+	ensureAllowedOrigin,
+	getClientIp,
+	jsonError,
+} from "@/lib/server/api";
+
+export const runtime = "nodejs";
 
 const CHAT_MODEL = openai("gpt-5-nano");
+const CHAT_RATE_LIMIT = {
+	limit: 30,
+	windowMs: 10 * 60 * 1_000,
+} as const;
+const MAX_CONTEXT_MESSAGES = 24;
+const MAX_CONTEXT_CHARACTERS = 12_000;
+const MAX_MESSAGE_CHARACTERS = 4_000;
+const MAX_SYSTEM_PROMPT_CHARACTERS = 1_200;
+const VALID_MESSAGE_ROLES = new Set(["system", "user", "assistant", "tool"]);
 
 const EMOTION_RESPONSE_SCHEMA = jsonSchema<StructuredChatResponse>({
 	type: "object",
@@ -73,6 +91,22 @@ Be supportive and clear, especially if the user sounds emotional.
 Do not include markdown fences.
 `.trim();
 
+type ChatRequestPayload = {
+	messages: UIMessage[];
+	system?: string;
+};
+
+type ValidationResult<T> =
+	| {
+			ok: true;
+			value: T;
+	  }
+	| {
+			ok: false;
+			message: string;
+			status: number;
+	  };
+
 const FALLBACK_KEYWORDS: Record<Exclude<Emotion, "neutral">, string[]> = {
 	happy: ["happy", "excited", "great", "amazing", "passed", "celebrate"],
 	sad: ["sad", "down", "upset", "lonely", "depressed", "heartbroken"],
@@ -105,13 +139,19 @@ const FALLBACK_KEYWORDS: Record<Exclude<Emotion, "neutral">, string[]> = {
 	],
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	Boolean(value) && typeof value === "object";
+
 const getTextFromMessage = (message: UIMessage) =>
 	message.parts
 		.filter(
 			(
 				part,
 			): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
-				part.type === "text" && typeof part.text === "string",
+				Boolean(part) &&
+				typeof part === "object" &&
+				part.type === "text" &&
+				typeof part.text === "string",
 		)
 		.map((part) => part.text)
 		.join("");
@@ -133,6 +173,122 @@ const buildEmotionSystemPrompt = (system?: string) =>
 
 const buildFallbackReplySystemPrompt = (system?: string) =>
 	[system?.trim(), FALLBACK_REPLY_SYSTEM_PROMPT].filter(Boolean).join("\n\n");
+
+const trimMessagesToBudget = (messages: UIMessage[]) => {
+	const keptMessages: UIMessage[] = [];
+	let totalCharacters = 0;
+
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		if (keptMessages.length >= MAX_CONTEXT_MESSAGES) {
+			break;
+		}
+
+		const candidate = messages[index];
+		const candidateLength = getTextFromMessage(candidate).length;
+
+		if (
+			keptMessages.length > 0 &&
+			totalCharacters + candidateLength > MAX_CONTEXT_CHARACTERS
+		) {
+			break;
+		}
+
+		totalCharacters += candidateLength;
+		keptMessages.unshift(candidate);
+	}
+
+	return keptMessages;
+};
+
+const validateChatRequest = (
+	body: unknown,
+): ValidationResult<ChatRequestPayload> => {
+	if (!isRecord(body)) {
+		return {
+			ok: false,
+			message: "Request body must be a JSON object.",
+			status: 400,
+		};
+	}
+
+	const { messages, system } = body;
+
+	if (!Array.isArray(messages) || messages.length === 0) {
+		return {
+			ok: false,
+			message: "At least one message is required.",
+			status: 400,
+		};
+	}
+
+	const validatedMessages: UIMessage[] = [];
+
+	for (const candidate of messages) {
+		if (
+			!isRecord(candidate) ||
+			typeof candidate.id !== "string" ||
+			typeof candidate.role !== "string" ||
+			!VALID_MESSAGE_ROLES.has(candidate.role) ||
+			!Array.isArray(candidate.parts)
+		) {
+			return {
+				ok: false,
+				message: "Messages must match the expected assistant UI format.",
+				status: 400,
+			};
+		}
+
+		const typedMessage = candidate as unknown as UIMessage;
+		const textLength = getTextFromMessage(typedMessage).trim().length;
+
+		if (textLength > MAX_MESSAGE_CHARACTERS) {
+			return {
+				ok: false,
+				message: `Each message must be ${MAX_MESSAGE_CHARACTERS} characters or fewer.`,
+				status: 413,
+			};
+		}
+
+		validatedMessages.push(typedMessage);
+	}
+
+	const trimmedMessages = trimMessagesToBudget(validatedMessages);
+	if (getLatestUserMessageText(trimmedMessages) === "") {
+		return {
+			ok: false,
+			message: "The latest user message cannot be empty.",
+			status: 400,
+		};
+	}
+
+	if (system !== undefined && system !== null && typeof system !== "string") {
+		return {
+			ok: false,
+			message: "System instructions must be a string.",
+			status: 400,
+		};
+	}
+
+	const normalizedSystem = system?.trim();
+	if (
+		normalizedSystem &&
+		normalizedSystem.length > MAX_SYSTEM_PROMPT_CHARACTERS
+	) {
+		return {
+			ok: false,
+			message: `System instructions must be ${MAX_SYSTEM_PROMPT_CHARACTERS} characters or fewer.`,
+			status: 413,
+		};
+	}
+
+	return {
+		ok: true,
+		value: {
+			messages: trimmedMessages,
+			system: normalizedSystem || undefined,
+		},
+	};
+};
 
 const detectFallbackEmotion = (text: string): Emotion => {
 	const normalizedText = text.toLowerCase();
@@ -158,11 +314,66 @@ const detectFallbackEmotion = (text: string): Emotion => {
 };
 
 export async function POST(req: Request) {
-	const { messages, system }: { messages: UIMessage[]; system?: string } =
-		await req.json();
+	const requestId = crypto.randomUUID();
+	const originCheck = ensureAllowedOrigin(req);
+
+	if (!originCheck.allowed) {
+		return jsonError(403, originCheck.message, {
+			requestId,
+			headers: {
+				Vary: "Origin, Referer",
+			},
+		});
+	}
+
+	const rateLimit = await consumeRateLimit({
+		key: `chat:${getClientIp(req)}`,
+		...CHAT_RATE_LIMIT,
+	});
+
+	if (!rateLimit.allowed) {
+		return jsonError(429, "Too many chat requests. Please try again shortly.", {
+			requestId,
+			rateLimit,
+			headers: {
+				"Retry-After": String(rateLimit.retryAfterSeconds),
+			},
+		});
+	}
+
+	if (!process.env.OPENAI_API_KEY) {
+		console.error(`[chat:${requestId}] Chat route is missing OPENAI_API_KEY.`);
+		return jsonError(500, "Chat is not configured.", {
+			requestId,
+			rateLimit,
+		});
+	}
+
+	const body = await req.json().catch(() => null);
+	const validation = validateChatRequest(body);
+
+	if (!validation.ok) {
+		return jsonError(validation.status, validation.message, {
+			requestId,
+			rateLimit,
+		});
+	}
+
+	const { messages, system } = validation.value;
 
 	const latestUserMessage = getLatestUserMessageText(messages);
-	const modelMessages = await convertToModelMessages(messages);
+	let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+
+	try {
+		modelMessages = await convertToModelMessages(messages);
+	} catch (error) {
+		console.error(`[chat:${requestId}] Invalid message payload.`, error);
+		return jsonError(400, "Messages could not be parsed.", {
+			requestId,
+			rateLimit,
+		});
+	}
+
 	let structuredResponse: StructuredChatResponse;
 
 	try {
@@ -178,7 +389,10 @@ export async function POST(req: Request) {
 
 		structuredResponse = normalizeStructuredChatResponse(object);
 	} catch (emotionError) {
-		console.error("Structured emotion classification failed.", emotionError);
+		console.error(
+			`[chat:${requestId}] Structured emotion classification failed.`,
+			emotionError,
+		);
 
 		const fallbackEmotion = detectFallbackEmotion(latestUserMessage);
 		let fallbackReply =
@@ -195,7 +409,10 @@ export async function POST(req: Request) {
 				fallbackReply = text.trim();
 			}
 		} catch (replyError) {
-			console.error("Fallback reply generation failed.", replyError);
+			console.error(
+				`[chat:${requestId}] Fallback reply generation failed.`,
+				replyError,
+			);
 		}
 
 		structuredResponse = {
@@ -236,10 +453,19 @@ export async function POST(req: Request) {
 			});
 		},
 		onError: (error) => {
-			console.error("Failed to stream chat response.", error);
+			console.error(
+				`[chat:${requestId}] Failed to stream chat response.`,
+				error,
+			);
 			return "Failed to respond.";
 		},
 	});
 
-	return createUIMessageStreamResponse({ stream });
+	return applyResponseHeaders(createUIMessageStreamResponse({ stream }), {
+		requestId,
+		rateLimit,
+		headers: {
+			Vary: "Origin, Referer",
+		},
+	});
 }

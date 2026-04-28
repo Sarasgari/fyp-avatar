@@ -106,7 +106,7 @@ const ThreadWelcome: FC = () => {
 	return (
 		<div className="aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-4 pt-2 pb-4">
 			<div className="aui-thread-welcome-message">
-				<h1 className="font-semibold text-3xl tracking-tight">Hi Sara</h1>
+				<h1 className="font-semibold text-3xl tracking-tight">Hi there</h1>
 				<p className="mt-1 text-muted-foreground text-lg">Ask me anything.</p>
 			</div>
 
