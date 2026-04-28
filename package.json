@@ -12,7 +12,7 @@
 		"lint:fix": "biome check --write .",
 		"test": "npm run test:build && npm run test:run",
 		"test:build": "tsc -p tsconfig.tests.json",
-		"test:run": "node dist-tests/tests/server/api.test.js",
+		"test:run": "node dist-tests/tests/run.js",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

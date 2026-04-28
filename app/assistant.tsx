@@ -7,7 +7,7 @@ import {
 } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useState } from "react";
-import { Thread } from "@/components/assistant-ui/thread";
+import { PersistentThread } from "@/components/assistant-ui/persistent-thread";
 import AvatarCanvas from "@/components/ui/avatar-canvas";
 import { Button } from "@/components/ui/button";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
@@ -55,7 +55,7 @@ export const Assistant = () => {
 					</div>
 
 					<div className="flex-1 min-h-0 overflow-hidden">
-						<Thread
+						<PersistentThread
 							onUserSend={() => {
 								setEmotionState("neutral");
 								setBodyState("thinking");

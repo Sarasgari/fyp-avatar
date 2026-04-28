@@ -22,13 +22,19 @@ import {
 	ensureAllowedOrigin,
 	getClientIp,
 	jsonError,
+	pickMostConstrainedRateLimit,
 } from "@/lib/server/api";
+import { resolveSession } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
 const CHAT_MODEL = openai("gpt-5-nano");
-const CHAT_RATE_LIMIT = {
+const CHAT_SESSION_RATE_LIMIT = {
 	limit: 30,
+	windowMs: 10 * 60 * 1_000,
+} as const;
+const CHAT_IP_RATE_LIMIT = {
+	limit: 60,
 	windowMs: 10 * 60 * 1_000,
 } as const;
 const MAX_CONTEXT_MESSAGES = 24;
@@ -316,28 +322,54 @@ const detectFallbackEmotion = (text: string): Emotion => {
 export async function POST(req: Request) {
 	const requestId = crypto.randomUUID();
 	const originCheck = ensureAllowedOrigin(req);
+	const session = resolveSession(req);
+	const responseHeaders = new Headers({
+		Vary: "Origin, Referer, Cookie",
+	});
+
+	if (session.ok && session.setCookieHeader) {
+		responseHeaders.append("Set-Cookie", session.setCookieHeader);
+	}
 
 	if (!originCheck.allowed) {
 		return jsonError(403, originCheck.message, {
 			requestId,
-			headers: {
-				Vary: "Origin, Referer",
-			},
+			headers: responseHeaders,
 		});
 	}
 
-	const rateLimit = await consumeRateLimit({
-		key: `chat:${getClientIp(req)}`,
-		...CHAT_RATE_LIMIT,
-	});
+	if (!session.ok) {
+		console.error(`[chat:${requestId}] ${session.message}`);
+		return jsonError(500, "Session protection is not configured.", {
+			requestId,
+			headers: responseHeaders,
+		});
+	}
 
-	if (!rateLimit.allowed) {
+	const ipRateLimit = await consumeRateLimit({
+		key: `chat:ip:${getClientIp(req)}`,
+		...CHAT_IP_RATE_LIMIT,
+	});
+	const sessionRateLimit = await consumeRateLimit({
+		key: `chat:session:${session.sessionId}`,
+		...CHAT_SESSION_RATE_LIMIT,
+	});
+	const activeRateLimit = pickMostConstrainedRateLimit(
+		ipRateLimit,
+		sessionRateLimit,
+	);
+
+	if (!ipRateLimit.allowed || !sessionRateLimit.allowed) {
+		const blockedRateLimit = ipRateLimit.allowed
+			? sessionRateLimit
+			: ipRateLimit;
 		return jsonError(429, "Too many chat requests. Please try again shortly.", {
 			requestId,
-			rateLimit,
-			headers: {
-				"Retry-After": String(rateLimit.retryAfterSeconds),
-			},
+			rateLimit: blockedRateLimit,
+			headers: new Headers([
+				...responseHeaders.entries(),
+				["Retry-After", String(blockedRateLimit.retryAfterSeconds)],
+			]),
 		});
 	}
 
@@ -345,7 +377,8 @@ export async function POST(req: Request) {
 		console.error(`[chat:${requestId}] Chat route is missing OPENAI_API_KEY.`);
 		return jsonError(500, "Chat is not configured.", {
 			requestId,
-			rateLimit,
+			rateLimit: activeRateLimit,
+			headers: responseHeaders,
 		});
 	}
 
@@ -355,7 +388,8 @@ export async function POST(req: Request) {
 	if (!validation.ok) {
 		return jsonError(validation.status, validation.message, {
 			requestId,
-			rateLimit,
+			rateLimit: activeRateLimit,
+			headers: responseHeaders,
 		});
 	}
 
@@ -370,7 +404,8 @@ export async function POST(req: Request) {
 		console.error(`[chat:${requestId}] Invalid message payload.`, error);
 		return jsonError(400, "Messages could not be parsed.", {
 			requestId,
-			rateLimit,
+			rateLimit: activeRateLimit,
+			headers: responseHeaders,
 		});
 	}
 
@@ -463,9 +498,7 @@ export async function POST(req: Request) {
 
 	return applyResponseHeaders(createUIMessageStreamResponse({ stream }), {
 		requestId,
-		rateLimit,
-		headers: {
-			Vary: "Origin, Referer",
-		},
+		rateLimit: activeRateLimit,
+		headers: responseHeaders,
 	});
 }

@@ -21,6 +21,7 @@ import {
 	PencilIcon,
 	RefreshCwIcon,
 	SquareIcon,
+	Trash2Icon,
 } from "lucide-react";
 import type { FC } from "react";
 import {
@@ -36,12 +37,16 @@ import { Button } from "@/components/ui/button";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 
-type ThreadProps = {
+export type ThreadProps = {
 	onUserSend?: () => void;
 	onEmotionStateChange?: (emotion: EmotionState) => void;
 	onBodyStateChange?: (state: BodyState) => void;
 	onSpeechStateChange?: (state: SpeechState) => void;
 	stopSpeechRequest?: number;
+	isPersistenceReady?: boolean;
+	hasSavedConversation?: boolean;
+	canClearConversation?: boolean;
+	onClearConversation?: () => void;
 };
 
 export const Thread: FC<ThreadProps> = ({
@@ -50,6 +55,10 @@ export const Thread: FC<ThreadProps> = ({
 	onBodyStateChange,
 	onSpeechStateChange,
 	stopSpeechRequest,
+	isPersistenceReady = true,
+	hasSavedConversation = false,
+	canClearConversation = false,
+	onClearConversation,
 }) => {
 	return (
 		<ThreadPrimitive.Root
@@ -64,11 +73,17 @@ export const Thread: FC<ThreadProps> = ({
 				onSpeechStateChange={onSpeechStateChange}
 				stopSpeechRequest={stopSpeechRequest}
 			/>
+			<ThreadToolbar
+				isPersistenceReady={isPersistenceReady}
+				hasSavedConversation={hasSavedConversation}
+				canClearConversation={canClearConversation}
+				onClearConversation={onClearConversation}
+			/>
 			<ThreadPrimitive.Viewport
 				turnAnchor="top"
 				className="aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2 pt-1 pb-2"
 			>
-				<AuiIf condition={(s) => s.thread.isEmpty}>
+				<AuiIf condition={(s) => isPersistenceReady && s.thread.isEmpty}>
 					<ThreadWelcome />
 				</AuiIf>
 				<ThreadPrimitive.Messages
@@ -85,6 +100,43 @@ export const Thread: FC<ThreadProps> = ({
 				</ThreadPrimitive.ViewportFooter>
 			</ThreadPrimitive.Viewport>
 		</ThreadPrimitive.Root>
+	);
+};
+
+type ThreadToolbarProps = {
+	isPersistenceReady: boolean;
+	hasSavedConversation: boolean;
+	canClearConversation: boolean;
+	onClearConversation?: () => void;
+};
+
+const ThreadToolbar: FC<ThreadToolbarProps> = ({
+	isPersistenceReady,
+	hasSavedConversation,
+	canClearConversation,
+	onClearConversation,
+}) => {
+	return (
+		<div className="mx-auto flex w-full max-w-(--thread-max-width) items-center justify-between gap-3 px-2 pt-1 pb-2">
+			<p className="text-muted-foreground text-xs sm:text-sm">
+				{isPersistenceReady
+					? hasSavedConversation
+						? "Conversation is saved on this device."
+						: "New conversations stay on this device until you clear them."
+					: "Restoring your saved conversation..."}
+			</p>
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				className="shrink-0"
+				disabled={!canClearConversation}
+				onClick={onClearConversation}
+			>
+				<Trash2Icon className="size-4" />
+				Clear conversation
+			</Button>
+		</div>
 	);
 };
 
