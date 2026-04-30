@@ -8,6 +8,15 @@
 		"noEmit": false,
 		"incremental": false
 	},
-	"include": ["tests/**/*.ts", "lib/server/api.ts"],
+	"include": [
+		"tests/**/*.ts",
+		"lib/auth.ts",
+		"lib/server/api.ts",
+		"lib/server/auth.ts",
+		"lib/server/session.ts",
+		"lib/server/thread-store.ts",
+		"lib/server/user-store.ts",
+		"lib/thread-persistence.ts"
+	],
 	"exclude": ["node_modules", ".next", "dist-tests"]
 }

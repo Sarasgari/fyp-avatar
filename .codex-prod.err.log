@@ -1,0 +1,2 @@
+[auth:session:d1acb996-47ee-4815-819c-882e6134b3fa] Missing required production configuration: ALLOWED_ORIGINS, SESSION_SIGNING_SECRET.
+[auth:session:7db30024-9e37-4995-9b1a-b032584b5757] Missing required production configuration: ALLOWED_ORIGINS, SESSION_SIGNING_SECRET.

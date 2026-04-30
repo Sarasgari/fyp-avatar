@@ -3,6 +3,7 @@ import {
 	consumeRateLimit,
 	ensureAllowedOrigin,
 	getClientIp,
+	pickMostConstrainedRateLimit,
 	resetRateLimitStateForTests,
 } from "../../lib/server/api";
 
@@ -41,7 +42,7 @@ const run = async (name: string, assertion: () => Promise<void> | void) => {
 	}
 };
 
-const main = async () => {
+export const runApiTests = async () => {
 	await run(
 		"consumeRateLimit blocks after the configured limit when using memory fallback",
 		async () => {
@@ -171,13 +172,29 @@ const main = async () => {
 
 		assert.equal(getClientIp(request), "203.0.113.1");
 	});
-};
 
-void main()
-	.finally(() => {
-		resetTestState();
-	})
-	.catch((error) => {
-		console.error(error);
-		process.exitCode = 1;
-	});
+	await run(
+		"pickMostConstrainedRateLimit prefers blocked results over allowed ones",
+		() => {
+			const selected = pickMostConstrainedRateLimit(
+				{
+					allowed: true,
+					limit: 60,
+					remaining: 52,
+					resetAt: 1_000,
+					retryAfterSeconds: 1,
+				},
+				{
+					allowed: false,
+					limit: 30,
+					remaining: 0,
+					resetAt: 2_000,
+					retryAfterSeconds: 30,
+				},
+			);
+
+			assert.equal(selected.allowed, false);
+			assert.equal(selected.limit, 30);
+		},
+	);
+};

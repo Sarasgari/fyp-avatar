@@ -22,15 +22,23 @@ import {
 	ensureAllowedOrigin,
 	getClientIp,
 	jsonError,
+	pickMostConstrainedRateLimit,
 } from "@/lib/server/api";
+import { resolveRequestIdentity } from "@/lib/server/auth";
+import { validateProductionServerConfig } from "@/lib/server/production-config";
 
 export const runtime = "nodejs";
 
 const CHAT_MODEL = openai("gpt-5-nano");
-const CHAT_RATE_LIMIT = {
+const CHAT_SESSION_RATE_LIMIT = {
 	limit: 30,
 	windowMs: 10 * 60 * 1_000,
 } as const;
+const CHAT_IP_RATE_LIMIT = {
+	limit: 60,
+	windowMs: 10 * 60 * 1_000,
+} as const;
+const E2E_CHAT_MOCK_ENABLED = process.env.E2E_CHAT_MOCK === "1";
 const MAX_CONTEXT_MESSAGES = 24;
 const MAX_CONTEXT_CHARACTERS = 12_000;
 const MAX_MESSAGE_CHARACTERS = 4_000;
@@ -313,39 +321,77 @@ const detectFallbackEmotion = (text: string): Emotion => {
 	return bestEmotion;
 };
 
+const createE2eStructuredResponse = (
+	latestUserMessage: string,
+): StructuredChatResponse => ({
+	emotion: "neutral",
+	avatarState: "idle",
+	reply: `E2E reply: ${latestUserMessage}`.trim(),
+});
+
 export async function POST(req: Request) {
 	const requestId = crypto.randomUUID();
+	const configCheck = validateProductionServerConfig({
+		requiresOpenAi: !E2E_CHAT_MOCK_ENABLED,
+	});
+	if (!configCheck.ok) {
+		console.error(`[chat:${requestId}] ${configCheck.logMessage}`);
+		return jsonError(500, configCheck.clientMessage, { requestId });
+	}
+
 	const originCheck = ensureAllowedOrigin(req);
+	const identity = await resolveRequestIdentity(req);
+	const responseHeaders = new Headers({
+		Vary: "Origin, Referer, Cookie",
+	});
+
+	if (identity.ok) {
+		for (const [key, value] of identity.headers.entries()) {
+			responseHeaders.append(key, value);
+		}
+	}
 
 	if (!originCheck.allowed) {
 		return jsonError(403, originCheck.message, {
 			requestId,
-			headers: {
-				Vary: "Origin, Referer",
-			},
+			headers: responseHeaders,
 		});
 	}
 
-	const rateLimit = await consumeRateLimit({
-		key: `chat:${getClientIp(req)}`,
-		...CHAT_RATE_LIMIT,
-	});
+	if (!identity.ok) {
+		console.error(`[chat:${requestId}] ${identity.message}`);
+		return jsonError(500, "Session protection is not configured.", {
+			requestId,
+			headers: responseHeaders,
+		});
+	}
 
-	if (!rateLimit.allowed) {
+	const ipRateLimit = await consumeRateLimit({
+		key: `chat:ip:${getClientIp(req)}`,
+		...CHAT_IP_RATE_LIMIT,
+	});
+	const sessionRateLimit = await consumeRateLimit({
+		key: identity.session.user
+			? `chat:user:${identity.session.user.id}`
+			: `chat:session:${identity.sessionId}`,
+		...CHAT_SESSION_RATE_LIMIT,
+	});
+	const activeRateLimit = pickMostConstrainedRateLimit(
+		ipRateLimit,
+		sessionRateLimit,
+	);
+
+	if (!ipRateLimit.allowed || !sessionRateLimit.allowed) {
+		const blockedRateLimit = ipRateLimit.allowed
+			? sessionRateLimit
+			: ipRateLimit;
 		return jsonError(429, "Too many chat requests. Please try again shortly.", {
 			requestId,
-			rateLimit,
-			headers: {
-				"Retry-After": String(rateLimit.retryAfterSeconds),
-			},
-		});
-	}
-
-	if (!process.env.OPENAI_API_KEY) {
-		console.error(`[chat:${requestId}] Chat route is missing OPENAI_API_KEY.`);
-		return jsonError(500, "Chat is not configured.", {
-			requestId,
-			rateLimit,
+			rateLimit: blockedRateLimit,
+			headers: new Headers([
+				...responseHeaders.entries(),
+				["Retry-After", String(blockedRateLimit.retryAfterSeconds)],
+			]),
 		});
 	}
 
@@ -355,71 +401,87 @@ export async function POST(req: Request) {
 	if (!validation.ok) {
 		return jsonError(validation.status, validation.message, {
 			requestId,
-			rateLimit,
+			rateLimit: activeRateLimit,
+			headers: responseHeaders,
 		});
 	}
 
 	const { messages, system } = validation.value;
-
 	const latestUserMessage = getLatestUserMessageText(messages);
-	let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
-
-	try {
-		modelMessages = await convertToModelMessages(messages);
-	} catch (error) {
-		console.error(`[chat:${requestId}] Invalid message payload.`, error);
-		return jsonError(400, "Messages could not be parsed.", {
-			requestId,
-			rateLimit,
-		});
-	}
-
 	let structuredResponse: StructuredChatResponse;
 
-	try {
-		const { object } = await generateObject({
-			model: CHAT_MODEL,
-			messages: modelMessages,
-			system: buildEmotionSystemPrompt(system),
-			schema: EMOTION_RESPONSE_SCHEMA,
-			schemaName: "avatarEmotionReply",
-			schemaDescription:
-				"Emotion classification and assistant reply for an expressive avatar chat app.",
-		});
-
-		structuredResponse = normalizeStructuredChatResponse(object);
-	} catch (emotionError) {
-		console.error(
-			`[chat:${requestId}] Structured emotion classification failed.`,
-			emotionError,
-		);
-
-		const fallbackEmotion = detectFallbackEmotion(latestUserMessage);
-		let fallbackReply =
-			"I'm sorry, I had trouble responding just now. Please try again.";
-
-		try {
-			const { text } = await generateText({
-				model: CHAT_MODEL,
-				messages: modelMessages,
-				system: buildFallbackReplySystemPrompt(system),
-			});
-
-			if (text.trim()) {
-				fallbackReply = text.trim();
-			}
-		} catch (replyError) {
+	if (E2E_CHAT_MOCK_ENABLED) {
+		structuredResponse = createE2eStructuredResponse(latestUserMessage);
+	} else {
+		if (!process.env.OPENAI_API_KEY) {
 			console.error(
-				`[chat:${requestId}] Fallback reply generation failed.`,
-				replyError,
+				`[chat:${requestId}] Chat route is missing OPENAI_API_KEY.`,
 			);
+			return jsonError(500, "Chat is not configured.", {
+				requestId,
+				rateLimit: activeRateLimit,
+				headers: responseHeaders,
+			});
 		}
 
-		structuredResponse = {
-			emotion: fallbackEmotion,
-			avatarState: emotionToAvatarState(fallbackEmotion),
-			reply: fallbackReply,
-		};
+		let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+
+		try {
+			modelMessages = await convertToModelMessages(messages);
+		} catch (error) {
+			console.error(`[chat:${requestId}] Invalid message payload.`, error);
+			return jsonError(400, "Messages could not be parsed.", {
+				requestId,
+				rateLimit: activeRateLimit,
+				headers: responseHeaders,
+			});
+		}
+
+		try {
+			const { object } = await generateObject({
+				model: CHAT_MODEL,
+				messages: modelMessages,
+				system: buildEmotionSystemPrompt(system),
+				schema: EMOTION_RESPONSE_SCHEMA,
+				schemaName: "avatarEmotionReply",
+				schemaDescription:
+					"Emotion classification and assistant reply for an expressive avatar chat app.",
+			});
+
+			structuredResponse = normalizeStructuredChatResponse(object);
+		} catch (emotionError) {
+			console.error(
+				`[chat:${requestId}] Structured emotion classification failed.`,
+				emotionError,
+			);
+
+			const fallbackEmotion = detectFallbackEmotion(latestUserMessage);
+			let fallbackReply =
+				"I'm sorry, I had trouble responding just now. Please try again.";
+
+			try {
+				const { text } = await generateText({
+					model: CHAT_MODEL,
+					messages: modelMessages,
+					system: buildFallbackReplySystemPrompt(system),
+				});
+
+				if (text.trim()) {
+					fallbackReply = text.trim();
+				}
+			} catch (replyError) {
+				console.error(
+					`[chat:${requestId}] Fallback reply generation failed.`,
+					replyError,
+				);
+			}
+
+			structuredResponse = {
+				emotion: fallbackEmotion,
+				avatarState: emotionToAvatarState(fallbackEmotion),
+				reply: fallbackReply,
+			};
+		}
 	}
 
 	const stream = createUIMessageStream<AssistantChatUIMessage>({
@@ -463,9 +525,7 @@ export async function POST(req: Request) {
 
 	return applyResponseHeaders(createUIMessageStreamResponse({ stream }), {
 		requestId,
-		rateLimit,
-		headers: {
-			Vary: "Origin, Referer",
-		},
+		rateLimit: activeRateLimit,
+		headers: responseHeaders,
 	});
 }

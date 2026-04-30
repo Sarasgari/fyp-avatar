@@ -1,0 +1,24 @@
+
+> fyp-avatar@0.1.0 dev
+> next dev --turbopack --hostname 127.0.0.1 --port 3001
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://127.0.0.1:3001
+- Network:       http://127.0.0.1:3001
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 1305ms
+ GET / 200 in 3.0s (compile: 1534ms, render: 1460ms)
+ GET /api/auth/session 200 in 205ms (compile: 156ms, render: 49ms)
+ GET /api/thread 200 in 69ms (compile: 56ms, render: 13ms)
+ DELETE /api/thread 204 in 20ms (compile: 5ms, render: 15ms)
+ DELETE /api/thread 204 in 13ms (compile: 5ms, render: 8ms)
+ GET / 200 in 82ms (compile: 10ms, render: 72ms)
+ GET /api/auth/session 200 in 11ms (compile: 4ms, render: 7ms)
+ GET /api/thread 200 in 12ms (compile: 4ms, render: 8ms)
+ DELETE /api/thread 204 in 11ms (compile: 5ms, render: 6ms)
+ DELETE /api/thread 204 in 14ms (compile: 6ms, render: 8ms)
+ DELETE /api/thread 204 in 15ms (compile: 5ms, render: 10ms)
+ DELETE /api/thread 204 in 10ms (compile: 4ms, render: 6ms)
+ DELETE /api/thread 204 in 11ms (compile: 4ms, render: 7ms)

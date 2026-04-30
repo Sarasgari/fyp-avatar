@@ -298,11 +298,36 @@ export const applyResponseHeaders = (
 		const extraHeaders = new Headers(headers);
 
 		for (const [key, value] of extraHeaders) {
+			if (key.toLowerCase() === "set-cookie") {
+				response.headers.append(key, value);
+				continue;
+			}
+
 			response.headers.set(key, value);
 		}
 	}
 
 	return response;
+};
+
+export const pickMostConstrainedRateLimit = (
+	...results: RateLimitResult[]
+): RateLimitResult => {
+	if (results.length === 0) {
+		throw new Error("At least one rate-limit result is required.");
+	}
+
+	return results.reduce((selected, candidate) => {
+		if (selected.allowed !== candidate.allowed) {
+			return selected.allowed ? candidate : selected;
+		}
+
+		if (candidate.remaining !== selected.remaining) {
+			return candidate.remaining < selected.remaining ? candidate : selected;
+		}
+
+		return candidate.resetAt > selected.resetAt ? candidate : selected;
+	});
 };
 
 export const jsonError = (
