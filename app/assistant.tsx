@@ -73,11 +73,11 @@ const bodyLabels: Record<BodyState, string> = {
 
 const statusPillToneClasses: Record<StatusPillTone, string> = {
 	default:
-		"border-white/55 bg-white/58 text-foreground shadow-sm backdrop-blur-xl",
+		"border-cyan-300/30 bg-slate-950/62 text-cyan-50 shadow-[0_0_22px_-14px_rgba(0,232,255,0.9)] backdrop-blur-xl",
 	success:
-		"border-lime-200/80 bg-lime-100/90 text-lime-950 shadow-sm backdrop-blur-xl",
+		"border-emerald-300/40 bg-emerald-400/16 text-emerald-100 shadow-[0_0_22px_-12px_rgba(52,255,146,0.95)] backdrop-blur-xl",
 	warning:
-		"border-amber-200/90 bg-amber-100/90 text-amber-950 shadow-sm backdrop-blur-xl",
+		"border-amber-300/50 bg-amber-400/16 text-amber-100 shadow-[0_0_22px_-12px_rgba(255,185,46,0.85)] backdrop-blur-xl",
 };
 
 const getBrowserDefaultPreferences = (): UserPreferences => ({
@@ -210,11 +210,11 @@ const AvatarStageHidden = ({ compact }: { compact: boolean }) => {
 	return (
 		<div
 			className={cn(
-				"flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/60 bg-[linear-gradient(160deg,rgba(255,244,214,0.9),rgba(255,255,255,0.72))] px-6 py-8 text-center shadow-sm",
+				"flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-cyan-300/30 bg-[linear-gradient(160deg,rgba(16,10,34,0.92),rgba(5,9,20,0.9))] px-6 py-8 text-center shadow-[inset_0_0_40px_rgba(0,232,255,0.08)]",
 				compact && "min-h-[15rem] px-5 py-6",
 			)}
 		>
-			<div className="flex size-12 items-center justify-center rounded-full border border-orange-200/80 bg-white/80 text-foreground shadow-sm">
+			<div className="flex size-12 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-100 shadow-[0_0_26px_-10px_rgba(0,232,255,0.9)]">
 				<EyeOffIcon className="size-5" />
 			</div>
 			<h3 className="mt-4 font-medium text-base">Avatar hidden</h3>
@@ -340,32 +340,34 @@ export const Assistant = () => {
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
-			<div className="relative h-screen overflow-hidden bg-[linear-gradient(128deg,#ffdcb2_0%,#ffad8d_34%,#fb4a3d_100%)] text-foreground">
-				<div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,246,218,0.62)_0%,rgba(255,166,126,0.18)_44%,rgba(138,45,35,0.26)_100%)]" />
-				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-[linear-gradient(0deg,rgba(255,236,177,0.72),rgba(255,236,177,0))]" />
+			<div className="relative h-screen overflow-hidden bg-[#030307] text-foreground">
+				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_112%,rgba(255,0,170,0.42),transparent_34%),radial-gradient(circle_at_82%_68%,rgba(0,232,255,0.28),transparent_28%),radial-gradient(circle_at_34%_18%,rgba(177,43,255,0.26),transparent_25%),linear-gradient(180deg,#020204_0%,#080513_46%,#171029_100%)]" />
+				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(0deg,rgba(161,52,210,0.42),rgba(0,232,255,0.08)_48%,transparent)]" />
+				<div className="pointer-events-none absolute right-[8%] bottom-[18%] h-28 w-64 rounded-full bg-cyan-400/18 blur-3xl" />
+				<div className="pointer-events-none absolute left-[28%] top-[7%] h-48 w-48 rounded-full bg-fuchsia-500/16 blur-3xl" />
 
 				<div
 					className={cn(
-						"relative mx-auto flex h-full w-full max-w-[86rem] flex-col gap-4 px-4 py-4",
+						"relative mx-auto flex h-full w-full max-w-[88rem] flex-col gap-4 px-4 py-4",
 						compactChat && "gap-3 px-3.5 py-3.5",
 					)}
 				>
 					<header
 						className={cn(
-							"rounded-full border border-white/60 bg-white/74 px-5 py-3 shadow-[0_18px_60px_-32px_rgba(75,28,20,0.55)] backdrop-blur-xl sm:px-6",
+							"rounded-[28px] border border-fuchsia-300/22 bg-slate-950/58 px-5 py-4 shadow-[0_0_70px_-36px_rgba(255,0,171,0.8)] backdrop-blur-xl sm:px-6",
 							compactChat && "px-4 py-4 sm:px-5",
 						)}
 					>
 						<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 							<div className="min-w-0">
-								<div className="inline-flex items-center gap-2 rounded-full border border-orange-200/80 bg-orange-50/80 px-3 py-1 text-muted-foreground text-xs shadow-sm">
-									<BotIcon className="size-3.5" />
+								<div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-300/10 px-3 py-1 text-cyan-100 text-xs shadow-[0_0_22px_-13px_rgba(0,232,255,0.9)]">
+									<BotIcon className="size-3.5 text-cyan-200" />
 									Avatar assistant
 								</div>
-								<h1 className="mt-2 max-w-3xl font-semibold text-2xl text-[#4a2119] tracking-tight text-balance sm:text-3xl">
+								<h1 className="mt-2 max-w-3xl font-semibold text-2xl text-white tracking-tight text-balance [text-shadow:0_0_26px_rgba(255,0,171,0.34)] sm:text-3xl">
 									Your expressive AI companion, live on stage.
 								</h1>
-								<p className="mt-1 max-w-2xl text-[#6f4a43] text-sm leading-6">
+								<p className="mt-1 max-w-2xl text-cyan-100/78 text-sm leading-6">
 									Chat, listen, and watch the avatar react with mood, posture,
 									and voice cues.
 								</p>
@@ -415,22 +417,22 @@ export const Assistant = () => {
 
 					<div
 						className={cn(
-							"grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(360px,0.92fr)_minmax(0,1.08fr)]",
+							"grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(360px,0.95fr)_minmax(0,1.05fr)]",
 							compactChat && "gap-3",
 						)}
 					>
 						<section
 							className={cn(
-								"flex min-h-[22rem] flex-col rounded-[32px] border border-white/45 bg-white/32 p-4 shadow-[0_22px_70px_-36px_rgba(77,28,21,0.55)] backdrop-blur-xl sm:p-5",
+								"flex min-h-[22rem] flex-col rounded-[32px] border border-fuchsia-300/24 bg-slate-950/54 p-4 shadow-[0_0_68px_-34px_rgba(255,0,171,0.78)] backdrop-blur-xl sm:p-5",
 								compactChat && "p-3.5 sm:p-4",
 							)}
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div>
-									<h2 className="font-medium text-[#4a2119] text-base">
+									<h2 className="font-medium text-cyan-50 text-base">
 										Avatar stage
 									</h2>
-									<p className="mt-1 text-[#6f4a43] text-sm leading-6">
+									<p className="mt-1 text-cyan-100/72 text-sm leading-6">
 										Live facial mood, posture, and speech cues stay in sync.
 									</p>
 								</div>
@@ -438,7 +440,7 @@ export const Assistant = () => {
 									type="button"
 									variant="secondary"
 									size="sm"
-									className="rounded-full bg-white/72 shadow-sm hover:bg-white/88"
+									className="rounded-full border border-cyan-300/24 bg-cyan-300/10 text-cyan-100 shadow-[0_0_22px_-14px_rgba(0,232,255,0.9)] hover:bg-cyan-300/18"
 									disabled={
 										!preferences.voiceEnabled ||
 										(speechState === "silent" && bodyState === "idleDance")
@@ -469,19 +471,19 @@ export const Assistant = () => {
 							</div>
 
 							<div className="mt-4 grid gap-2 sm:grid-cols-2">
-								<div className="rounded-2xl border border-white/45 bg-white/56 px-4 py-3 backdrop-blur">
-									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
+								<div className="rounded-2xl border border-cyan-300/24 bg-slate-950/62 px-4 py-3 shadow-[inset_0_0_28px_rgba(0,232,255,0.04)] backdrop-blur">
+									<p className="text-cyan-200/70 text-xs uppercase tracking-[0.18em]">
 										Posture
 									</p>
-									<p className="mt-1 font-medium text-sm">
+									<p className="mt-1 font-medium text-cyan-50 text-sm">
 										{bodyLabels[bodyState]}
 									</p>
 								</div>
-								<div className="rounded-2xl border border-white/45 bg-white/56 px-4 py-3 backdrop-blur">
-									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
+								<div className="rounded-2xl border border-fuchsia-300/24 bg-slate-950/62 px-4 py-3 shadow-[inset_0_0_28px_rgba(255,0,171,0.05)] backdrop-blur">
+									<p className="text-fuchsia-200/72 text-xs uppercase tracking-[0.18em]">
 										Voice flow
 									</p>
-									<p className="mt-1 font-medium text-sm">
+									<p className="mt-1 font-medium text-fuchsia-50 text-sm">
 										{!preferences.voiceEnabled
 											? "Muted in settings."
 											: speechState === "talking"
@@ -494,7 +496,7 @@ export const Assistant = () => {
 							</div>
 						</section>
 
-						<section className="min-h-0 overflow-hidden rounded-[32px] border border-white/55 bg-white/78 shadow-[0_22px_70px_-34px_rgba(77,28,21,0.58)] backdrop-blur-xl">
+						<section className="min-h-0 overflow-hidden rounded-[32px] border border-cyan-300/22 bg-slate-950/58 shadow-[0_0_68px_-34px_rgba(0,232,255,0.78)] backdrop-blur-xl">
 							<PersistentThread
 								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
 								compact={compactChat}

@@ -135,7 +135,7 @@ export const Thread: FC<ThreadProps> = ({
 
 				<ThreadPrimitive.ViewportFooter
 					className={cn(
-						"aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible bg-[linear-gradient(180deg,rgba(255,250,232,0),rgba(255,250,232,0.94)_22%)] pt-4 pb-4",
+						"aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible bg-[linear-gradient(180deg,rgba(3,5,16,0),rgba(3,5,16,0.92)_22%)] pt-4 pb-4",
 						compact && "gap-1.5 pt-3 pb-3",
 					)}
 				>
@@ -257,8 +257,8 @@ const ThreadStatusChip: FC<ThreadStatusChipProps> = ({
 			className={cn(
 				"inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm",
 				tone === "success"
-					? "border-lime-200/80 bg-lime-100/80 text-lime-950"
-					: "border-orange-200/70 bg-white/65 text-foreground",
+					? "border-emerald-300/35 bg-emerald-400/14 text-emerald-100 shadow-[0_0_20px_-12px_rgba(52,255,146,0.95)]"
+					: "border-cyan-300/28 bg-slate-950/58 text-cyan-50 shadow-[0_0_20px_-13px_rgba(0,232,255,0.9)]",
 			)}
 		>
 			<Icon className={cn("size-3.5 shrink-0", animate && "animate-spin")} />
@@ -293,12 +293,12 @@ const ThreadRunNotice: FC<ThreadRunNoticeProps> = ({
 }) => {
 	return (
 		<div className="mx-auto w-full max-w-(--thread-max-width) px-2 pb-2">
-			<div className="inline-flex items-center gap-2 rounded-full border border-orange-200/80 bg-orange-50/85 px-3 py-1.5 text-orange-950 text-xs shadow-sm">
+			<div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-300/34 bg-fuchsia-400/12 px-3 py-1.5 text-fuchsia-50 text-xs shadow-[0_0_22px_-12px_rgba(255,0,171,0.9)]">
 				<LoaderCircleIcon
 					className={cn("size-3.5", !reducedMotion && "animate-spin")}
 				/>
 				<span className="font-medium">Generating a reply</span>
-				<span className="text-orange-900/80">
+				<span className="text-fuchsia-100/78">
 					{voiceEnabled
 						? "Voice playback will start automatically when the response is ready."
 						: "Voice is muted, so the response will stay text-first."}
@@ -326,7 +326,7 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({
 		>
 			<div
 				className={cn(
-					"aui-thread-welcome-message rounded-[28px] border border-orange-200/70 bg-[linear-gradient(135deg,rgba(255,238,181,0.72),rgba(255,255,255,0.78)_42%,rgba(255,151,112,0.2))] px-5 py-5 shadow-sm",
+					"aui-thread-welcome-message rounded-[28px] border border-fuchsia-300/26 bg-[linear-gradient(135deg,rgba(255,0,171,0.18),rgba(3,8,22,0.76)_42%,rgba(0,232,255,0.12))] px-5 py-5 shadow-[0_0_34px_-22px_rgba(255,0,171,0.85)]",
 					compact && "rounded-[24px] px-4 py-4",
 				)}
 			>
@@ -402,7 +402,7 @@ const ThreadSuggestionItem: FC<ThreadSuggestionItemProps> = ({
 				<Button
 					variant="ghost"
 					className={cn(
-						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border border-orange-200/70 bg-white/64 px-4 py-3 text-left text-sm transition-colors hover:bg-orange-50/90 @md:flex-col",
+						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border border-cyan-300/24 bg-slate-950/54 px-4 py-3 text-left text-sm text-cyan-50 transition-colors hover:bg-cyan-300/12 @md:flex-col",
 						compact && "px-3 py-2.5 text-[13px]",
 					)}
 				>
@@ -433,7 +433,7 @@ const Composer: FC<ComposerProps> = ({
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
 				className={cn(
-					"aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-orange-200/80 bg-white/86 px-1 pt-2 shadow-[0_14px_42px_-28px_rgba(83,31,20,0.55)] outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/25 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50",
+					"aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-cyan-300/32 bg-slate-950/76 px-1 pt-2 shadow-[0_0_36px_-22px_rgba(0,232,255,0.9)] outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/25 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/20",
 					compact && "rounded-[20px] pt-1.5",
 				)}
 			>
@@ -548,7 +548,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({ compact = false }) => {
 			)}
 			data-role="assistant"
 		>
-			<div className="aui-assistant-message-content wrap-break-word rounded-[24px] border border-orange-100/70 bg-white/48 px-4 py-3 text-foreground leading-relaxed shadow-sm">
+			<div className="aui-assistant-message-content wrap-break-word rounded-[24px] border border-cyan-300/22 bg-cyan-300/8 px-4 py-3 text-cyan-50 leading-relaxed shadow-[0_0_30px_-22px_rgba(0,232,255,0.85)]">
 				<MessagePrimitive.Parts
 					components={{
 						Text: SpeechSyncedMarkdownText,
@@ -631,7 +631,7 @@ const UserMessage: FC<UserMessageProps> = ({ compact = false }) => {
 			<UserMessageAttachments />
 
 			<div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-				<div className="aui-user-message-content wrap-break-word rounded-2xl bg-[linear-gradient(135deg,#ffdf75,#ffab4a)] px-4 py-2.5 text-amber-950 shadow-sm">
+				<div className="aui-user-message-content wrap-break-word rounded-2xl bg-[linear-gradient(135deg,#ff007a,#7a2cff)] px-4 py-2.5 text-white shadow-[0_0_30px_-14px_rgba(255,0,171,0.88)]">
 					<MessagePrimitive.Parts />
 				</div>
 				<div className="aui-user-action-bar-wrapper absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 pr-2">
@@ -674,7 +674,7 @@ const EditComposer: FC<EditComposerProps> = ({ compact = false }) => {
 		>
 			<ComposerPrimitive.Root
 				className={cn(
-					"aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl bg-orange-50/90",
+					"aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl border border-fuchsia-300/24 bg-slate-950/76",
 					compact && "rounded-[20px]",
 				)}
 			>

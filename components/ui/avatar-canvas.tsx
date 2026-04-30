@@ -1175,14 +1175,12 @@ const AvatarFallback = ({
 				};
 
 	return (
-		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-amber-200/80 bg-[linear-gradient(160deg,rgba(255,230,161,0.9),rgba(255,255,255,0.82))] px-6 py-8 text-center shadow-sm">
-			<div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-800 shadow-sm">
+		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-amber-300/35 bg-[linear-gradient(160deg,rgba(38,20,58,0.92),rgba(4,8,18,0.9))] px-6 py-8 text-center shadow-[inset_0_0_34px_rgba(255,185,46,0.08)]">
+			<div className="flex size-12 items-center justify-center rounded-full bg-amber-300/12 text-amber-100 shadow-[0_0_28px_-10px_rgba(255,185,46,0.95)]">
 				<ShieldAlertIcon className="size-6" />
 			</div>
-			<h3 className="mt-4 font-medium text-base text-amber-950">
-				{copy.title}
-			</h3>
-			<p className="mt-2 max-w-sm text-amber-900/80 text-sm leading-6">
+			<h3 className="mt-4 font-medium text-amber-50 text-base">{copy.title}</h3>
+			<p className="mt-2 max-w-sm text-amber-100/74 text-sm leading-6">
 				{copy.description}
 			</p>
 		</div>
@@ -1216,20 +1214,22 @@ export default function AvatarCanvas({
 	const showFallback = status === "error" || status === "unsupported";
 
 	return (
-		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[28px] border border-white/45 bg-[linear-gradient(150deg,rgba(255,246,205,0.92)_0%,rgba(255,190,113,0.84)_48%,rgba(245,83,59,0.72)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[28px] border border-cyan-300/22 bg-[radial-gradient(circle_at_74%_70%,rgba(0,232,255,0.22),transparent_28%),radial-gradient(circle_at_28%_25%,rgba(255,0,171,0.3),transparent_27%),linear-gradient(160deg,rgba(10,7,24,0.98)_0%,rgba(20,8,40,0.94)_52%,rgba(4,7,18,0.98)_100%)] shadow-[inset_0_0_56px_rgba(0,232,255,0.08),0_0_44px_-28px_rgba(255,0,171,0.8)]">
+			<div className="pointer-events-none absolute inset-x-10 bottom-[-2.5rem] h-28 rounded-[50%] bg-[radial-gradient(ellipse_at_center,rgba(255,0,171,0.42),rgba(0,232,255,0.15)_48%,transparent_72%)] blur-xl" />
+			<div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(0deg,rgba(136,42,180,0.34),transparent)]" />
 			<div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-between gap-3">
-				<div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/72 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
+				<div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/34 bg-slate-950/64 px-3 py-1.5 text-cyan-50 text-xs shadow-[0_0_22px_-12px_rgba(0,232,255,0.92)] backdrop-blur-xl">
 					{status === "ready" ? (
-						<ShieldCheckIcon className="size-3.5 text-lime-700" />
+						<ShieldCheckIcon className="size-3.5 text-emerald-300" />
 					) : status === "loading" ? (
 						<LoaderCircleIcon
 							className={cn(
-								"size-3.5 text-orange-600",
+								"size-3.5 text-fuchsia-300",
 								!reducedMotion && "animate-spin",
 							)}
 						/>
 					) : (
-						<ShieldAlertIcon className="size-3.5 text-amber-700" />
+						<ShieldAlertIcon className="size-3.5 text-amber-300" />
 					)}
 					<span className="font-medium">
 						{status === "ready"
@@ -1239,7 +1239,7 @@ export default function AvatarCanvas({
 								: "Fallback mode"}
 					</span>
 				</div>
-				<div className="hidden rounded-full border border-white/60 bg-white/62 px-3 py-1.5 text-muted-foreground text-xs shadow-sm backdrop-blur-xl sm:block">
+				<div className="hidden rounded-full border border-fuchsia-300/30 bg-slate-950/58 px-3 py-1.5 text-fuchsia-100/80 text-xs shadow-[0_0_22px_-12px_rgba(255,0,171,0.86)] backdrop-blur-xl sm:block">
 					{speechState === "talking"
 						? "Voice active"
 						: bodyState === "thinking"
@@ -1263,11 +1263,11 @@ export default function AvatarCanvas({
 			) : null}
 
 			{isLoading ? (
-				<div className="pointer-events-none absolute inset-x-6 bottom-6 rounded-2xl border border-white/60 bg-white/72 px-4 py-3 shadow-sm backdrop-blur-xl">
+				<div className="pointer-events-none absolute inset-x-6 bottom-6 rounded-2xl border border-fuchsia-300/28 bg-slate-950/70 px-4 py-3 shadow-[0_0_32px_-18px_rgba(255,0,171,0.82)] backdrop-blur-xl">
 					<div className="flex items-center gap-2 text-foreground text-sm">
 						<LoaderCircleIcon
 							className={cn(
-								"size-4 text-orange-600",
+								"size-4 text-fuchsia-300",
 								!reducedMotion && "animate-spin",
 							)}
 						/>
