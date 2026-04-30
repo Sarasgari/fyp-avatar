@@ -1,33 +1,36 @@
-import type { ExportedMessageRepository } from "@assistant-ui/core";
-
 const PERSISTED_THREAD_SNAPSHOT_VERSION = 1;
 
-export const PERSISTED_THREAD_STORAGE_KEY = "fyp-avatar:thread:v1";
+export const PERSISTED_THREAD_STORAGE_PREFIX = "fyp-avatar:thread:v1";
+
+export const getPersistedThreadStorageKey = (ownerKey: string) =>
+	`${PERSISTED_THREAD_STORAGE_PREFIX}:${encodeURIComponent(ownerKey)}`;
+
+export type PersistableThreadExternalState = {
+	headId?: string | null;
+	messages: unknown[];
+	[key: string]: unknown;
+};
 
 export type PersistedThreadSnapshot = {
 	version: typeof PERSISTED_THREAD_SNAPSHOT_VERSION;
 	savedAt: string;
-	snapshot: ExportedMessageRepository;
+	snapshot: PersistableThreadExternalState;
 };
+
+export const createEmptyThreadExternalState =
+	(): PersistableThreadExternalState => ({
+		headId: null,
+		messages: [],
+	});
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null;
 
-const isThreadMessageLike = (value: unknown) => {
-	if (!isRecord(value)) return false;
-
-	return (
-		typeof value.id === "string" &&
-		typeof value.role === "string" &&
-		Array.isArray(value.content)
-	);
-};
-
-const isExportedMessageRepository = (
+const coercePersistableThreadExternalState = (
 	value: unknown,
-): value is ExportedMessageRepository => {
+): PersistableThreadExternalState | null => {
 	if (!isRecord(value) || !Array.isArray(value.messages)) {
-		return false;
+		return null;
 	}
 
 	if (
@@ -35,25 +38,22 @@ const isExportedMessageRepository = (
 		value.headId !== null &&
 		typeof value.headId !== "string"
 	) {
-		return false;
+		return null;
 	}
 
-	return value.messages.every((entry) => {
-		if (!isRecord(entry)) return false;
-
-		return (
-			(entry.parentId === null || typeof entry.parentId === "string") &&
-			isThreadMessageLike(entry.message)
-		);
-	});
+	return {
+		...value,
+		headId: value.headId ?? null,
+		messages: [...value.messages],
+	};
 };
 
 export const hasPersistedMessages = (
-	snapshot: ExportedMessageRepository | null | undefined,
+	snapshot: PersistableThreadExternalState | null | undefined,
 ) => Boolean(snapshot && snapshot.messages.length > 0);
 
 export const createPersistedThreadSnapshot = (
-	snapshot: ExportedMessageRepository,
+	snapshot: PersistableThreadExternalState,
 	now = new Date(),
 ): PersistedThreadSnapshot => ({
 	version: PERSISTED_THREAD_SNAPSHOT_VERSION,
@@ -62,40 +62,44 @@ export const createPersistedThreadSnapshot = (
 });
 
 export const serializePersistedThreadSnapshot = (
-	snapshot: ExportedMessageRepository,
+	snapshot: PersistableThreadExternalState,
 	now?: Date,
 ) => JSON.stringify(createPersistedThreadSnapshot(snapshot, now));
 
-export const parsePersistedThreadSnapshot = (
-	rawSnapshot: string | null,
+export const coercePersistedThreadSnapshot = (
+	value: unknown,
 ): PersistedThreadSnapshot | null => {
+	if (!isRecord(value)) {
+		return null;
+	}
+
+	if (value.version !== PERSISTED_THREAD_SNAPSHOT_VERSION) {
+		return null;
+	}
+
+	const snapshot =
+		typeof value.savedAt === "string"
+			? coercePersistableThreadExternalState(value.snapshot)
+			: null;
+
+	if (typeof value.savedAt !== "string" || !snapshot) {
+		return null;
+	}
+
+	return {
+		version: PERSISTED_THREAD_SNAPSHOT_VERSION,
+		savedAt: value.savedAt,
+		snapshot,
+	};
+};
+
+export const parsePersistedThreadSnapshot = (rawSnapshot: string | null) => {
 	if (!rawSnapshot) {
 		return null;
 	}
 
 	try {
-		const parsed = JSON.parse(rawSnapshot) as unknown;
-
-		if (!isRecord(parsed)) {
-			return null;
-		}
-
-		if (parsed.version !== PERSISTED_THREAD_SNAPSHOT_VERSION) {
-			return null;
-		}
-
-		if (
-			typeof parsed.savedAt !== "string" ||
-			!isExportedMessageRepository(parsed.snapshot)
-		) {
-			return null;
-		}
-
-		return {
-			version: PERSISTED_THREAD_SNAPSHOT_VERSION,
-			savedAt: parsed.savedAt,
-			snapshot: parsed.snapshot,
-		};
+		return coercePersistedThreadSnapshot(JSON.parse(rawSnapshot) as unknown);
 	} catch {
 		return null;
 	}

@@ -2,12 +2,16 @@
 
 import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { Canvas, useFrame } from "@react-three/fiber";
+import {
+	LoaderCircleIcon,
+	ShieldAlertIcon,
+	ShieldCheckIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
-import { BODY_STATE_ANIMATION_PATHS } from "@/lib/avatar-state";
-import { loadVRMAnimationClip } from "@/lib/vrma-loader";
+import { cn } from "@/lib/utils";
 
 const MODEL_PATH = "/models/AjoMajo.vrm";
 const BASE_POSITION_Y = -0.4;
@@ -45,8 +49,6 @@ const BODY_BONE_NAMES = [
 	"leftFoot",
 	"rightFoot",
 ] as const;
-const TRANSITION_FADE_SECONDS = 0.45;
-const ONE_SHOT_BODY_STATES = new Set<BodyState>(["wave", "celebration"]);
 
 type MouthPreset = (typeof MOUTH_PRESETS)[number];
 type FaceExpressionName = (typeof FACE_EXPRESSION_NAMES)[number];
@@ -75,14 +77,8 @@ type LipSyncState = {
 	peak: number;
 	cadenceOffset: number;
 };
-type AnimationController = {
-	mixer: THREE.AnimationMixer | null;
-	currentAction: THREE.AnimationAction | null;
-	currentBodyState: BodyState | null;
-	manualBodyState: BodyState | null;
-	requestId: number;
-	stopTimeoutId: number | null;
-};
+
+export type AvatarCanvasStatus = "loading" | "ready" | "unsupported" | "error";
 
 const VOWEL_TRANSITION_WEIGHTS: Record<
 	MouthPreset,
@@ -899,22 +895,18 @@ const dampExpressionValue = (
 function VRMAvatar({
 	emotionState,
 	bodyState,
+	reducedMotion,
 	speechState,
+	onStatusChange,
 }: {
 	emotionState: EmotionState;
 	bodyState: BodyState;
+	reducedMotion: boolean;
 	speechState: SpeechState;
+	onStatusChange: (status: AvatarCanvasStatus) => void;
 }) {
 	const [vrm, setVrm] = useState<VRM | null>(null);
 	const bodyRigRef = useRef<BodyRig>({});
-	const animationControllerRef = useRef<AnimationController>({
-		mixer: null,
-		currentAction: null,
-		currentBodyState: null,
-		manualBodyState: bodyState,
-		requestId: 0,
-		stopTimeoutId: null,
-	});
 	const blinkWindowRef = useRef({
 		start: 0,
 		end: 0,
@@ -933,6 +925,7 @@ function VRMAvatar({
 
 	useEffect(() => {
 		let disposed = false;
+		onStatusChange("loading");
 		const loader = new GLTFLoader();
 		loader.register((parser) => new VRMLoaderPlugin(parser));
 
@@ -960,128 +953,43 @@ function VRMAvatar({
 				}
 
 				bodyRigRef.current = bodyRig;
+				onStatusChange("ready");
 				setVrm(loadedVrm);
 			},
 			undefined,
 			(error) => {
 				console.error("Failed to load VRM:", error);
+				if (!disposed) {
+					onStatusChange("error");
+				}
 			},
 		);
 
 		return () => {
 			disposed = true;
-			const controller = animationControllerRef.current;
-			if (controller.stopTimeoutId !== null) {
-				window.clearTimeout(controller.stopTimeoutId);
-			}
-			controller.currentAction?.stop();
-			controller.mixer?.stopAllAction();
 			bodyRigRef.current = {};
 		};
-	}, []);
-
-	useEffect(() => {
-		if (!vrm) return;
-
-		const controller = animationControllerRef.current;
-		controller.requestId += 1;
-		const requestId = controller.requestId;
-		controller.manualBodyState = bodyState;
-
-		const animationPath = BODY_STATE_ANIMATION_PATHS[bodyState];
-		if (!animationPath) {
-			if (controller.currentAction) {
-				controller.currentAction.stop();
-				controller.currentAction = null;
-				controller.currentBodyState = null;
-			}
-			return;
-		}
-
-		let cancelled = false;
-
-		void loadVRMAnimationClip(animationPath, vrm).then((clip) => {
-			if (cancelled) return;
-
-			const activeController = animationControllerRef.current;
-			if (activeController.requestId !== requestId) return;
-
-			if (!clip) {
-				activeController.manualBodyState = bodyState;
-				if (activeController.currentAction) {
-					activeController.currentAction.stop();
-					activeController.currentAction = null;
-					activeController.currentBodyState = null;
-				}
-				return;
-			}
-
-			const mixer =
-				activeController.mixer ?? new THREE.AnimationMixer(vrm.scene);
-			activeController.mixer = mixer;
-
-			const nextAction = mixer.clipAction(clip);
-			nextAction.reset();
-			nextAction.enabled = true;
-			nextAction.clampWhenFinished = ONE_SHOT_BODY_STATES.has(bodyState);
-			nextAction.setLoop(
-				ONE_SHOT_BODY_STATES.has(bodyState) ? THREE.LoopOnce : THREE.LoopRepeat,
-				ONE_SHOT_BODY_STATES.has(bodyState) ? 1 : Number.POSITIVE_INFINITY,
-			);
-			nextAction.fadeIn(
-				activeController.currentAction ? TRANSITION_FADE_SECONDS : 0.15,
-			);
-			nextAction.play();
-
-			if (
-				activeController.currentAction &&
-				activeController.currentAction !== nextAction
-			) {
-				activeController.currentAction.fadeOut(TRANSITION_FADE_SECONDS);
-				if (activeController.stopTimeoutId !== null) {
-					window.clearTimeout(activeController.stopTimeoutId);
-				}
-				const fadingAction = activeController.currentAction;
-				activeController.stopTimeoutId = window.setTimeout(
-					() => {
-						fadingAction.stop();
-						animationControllerRef.current.stopTimeoutId = null;
-					},
-					(TRANSITION_FADE_SECONDS + 0.05) * 1000,
-				);
-			}
-
-			activeController.currentAction = nextAction;
-			activeController.currentBodyState = bodyState;
-			activeController.manualBodyState = null;
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [bodyState, vrm]);
+	}, [onStatusChange]);
 
 	useFrame(({ clock }, delta) => {
 		if (!vrm) return;
 
 		const time = clock.getElapsedTime();
-		const controller = animationControllerRef.current;
+		const expressiveTime = reducedMotion ? 0 : time;
+		const effectiveSpeechState = reducedMotion ? "silent" : speechState;
 		const lipSyncState = lipSyncStateRef.current;
 		const mouthTargets = createMouthTargets();
 		const faceTargets = createFaceTargets();
-		const manualBodyState =
-			controller.manualBodyState ??
-			(!controller.currentAction ? bodyState : null);
 		const blink = getBlinkAmount(
-			time,
+			expressiveTime,
 			blinkWindowRef.current,
 			emotionState,
 			bodyState,
-			speechState,
+			effectiveSpeechState,
 		);
 		let speechEnergy = 0;
 
-		if (speechState === "talking") {
+		if (effectiveSpeechState === "talking") {
 			if (!lipSyncState.active) {
 				lipSyncState.active = true;
 				lipSyncState.cadenceOffset = Math.random() * Math.PI * 2;
@@ -1142,23 +1050,19 @@ function VRMAvatar({
 			lipSyncState.pauseUntil = 0;
 		}
 
-		applyEmotionFace(faceTargets, emotionState, bodyState, time);
-		if (speechState === "talking") {
+		applyEmotionFace(faceTargets, emotionState, bodyState, expressiveTime);
+		if (effectiveSpeechState === "talking") {
 			applyTalkingState(faceTargets, speechEnergy);
 		}
 
-		const sceneMotion = manualBodyState
-			? getManualSceneMotion(manualBodyState, time, speechState, speechEnergy)
-			: {
-					rotationX: 0,
-					rotationY: Math.PI,
-					rotationZ: 0,
-					positionX: 0,
-					positionYOffset: 0,
-					breathingScale: 0,
-				};
-		const sceneDamping = getSceneDamping(manualBodyState);
-		const breathing = Math.sin(time * 1.6);
+		const sceneMotion = getManualSceneMotion(
+			bodyState,
+			expressiveTime,
+			effectiveSpeechState,
+			reducedMotion ? 0 : speechEnergy,
+		);
+		const sceneDamping = getSceneDamping(bodyState);
+		const breathing = Math.sin(expressiveTime * 1.6);
 		const targetPositionY =
 			BASE_POSITION_Y +
 			sceneMotion.positionYOffset +
@@ -1194,19 +1098,14 @@ function VRMAvatar({
 			sceneDamping.position,
 			delta,
 		);
-
-		controller.mixer?.update(delta);
-
-		if (manualBodyState) {
-			applyManualBodyPose(
-				bodyRigRef.current,
-				manualBodyState,
-				speechState,
-				time,
-				speechEnergy,
-				delta,
-			);
-		}
+		applyManualBodyPose(
+			bodyRigRef.current,
+			bodyState,
+			effectiveSpeechState,
+			expressiveTime,
+			reducedMotion ? 0 : speechEnergy,
+			delta,
+		);
 
 		for (const preset of MOUTH_PRESETS) {
 			dampExpressionValue(
@@ -1242,24 +1141,146 @@ type AvatarCanvasProps = {
 	emotionState: EmotionState;
 	bodyState: BodyState;
 	speechState: SpeechState;
+	onStatusChange?: (status: AvatarCanvasStatus) => void;
+	reducedMotion?: boolean;
+};
+
+const supportsWebGl = () => {
+	try {
+		const canvas = document.createElement("canvas");
+		return Boolean(
+			canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
+		);
+	} catch {
+		return false;
+	}
+};
+
+const AvatarFallback = ({
+	status,
+}: {
+	status: Extract<AvatarCanvasStatus, "error" | "unsupported">;
+}) => {
+	const copy =
+		status === "unsupported"
+			? {
+					title: "Live avatar unavailable",
+					description:
+						"Your browser cannot render the WebGL avatar here, but chat and saved history still work normally.",
+				}
+			: {
+					title: "Avatar is in fallback mode",
+					description:
+						"The live model could not finish loading, so the conversation stays text-first until the next refresh.",
+				};
+
+	return (
+		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-amber-200/80 bg-[linear-gradient(160deg,rgba(255,230,161,0.9),rgba(255,255,255,0.82))] px-6 py-8 text-center shadow-sm">
+			<div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-800 shadow-sm">
+				<ShieldAlertIcon className="size-6" />
+			</div>
+			<h3 className="mt-4 font-medium text-base text-amber-950">
+				{copy.title}
+			</h3>
+			<p className="mt-2 max-w-sm text-amber-900/80 text-sm leading-6">
+				{copy.description}
+			</p>
+		</div>
+	);
 };
 
 export default function AvatarCanvas({
 	emotionState,
 	bodyState,
 	speechState,
+	onStatusChange,
+	reducedMotion = false,
 }: AvatarCanvasProps) {
+	const [status, setStatus] = useState<AvatarCanvasStatus>("loading");
+	const [isWebGlSupported, setIsWebGlSupported] = useState<boolean | null>(
+		null,
+	);
+
+	useEffect(() => {
+		const supported = supportsWebGl();
+		setIsWebGlSupported(supported);
+		setStatus(supported ? "loading" : "unsupported");
+	}, []);
+
+	useEffect(() => {
+		onStatusChange?.(status);
+	}, [onStatusChange, status]);
+
+	const canRenderAvatar = isWebGlSupported === true && status !== "error";
+	const isLoading = canRenderAvatar && status === "loading";
+	const showFallback = status === "error" || status === "unsupported";
+
 	return (
-		<div className="w-full h-[400px] md:h-[450px] overflow-hidden rounded-2xl bg-muted/40">
-			<Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
-				<ambientLight intensity={1.2} />
-				<directionalLight position={[1, 1, 1]} intensity={1.5} />
-				<VRMAvatar
-					emotionState={emotionState}
-					bodyState={bodyState}
-					speechState={speechState}
-				/>
-			</Canvas>
+		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[28px] border border-white/45 bg-[linear-gradient(150deg,rgba(255,246,205,0.92)_0%,rgba(255,190,113,0.84)_48%,rgba(245,83,59,0.72)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+			<div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-between gap-3">
+				<div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/72 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
+					{status === "ready" ? (
+						<ShieldCheckIcon className="size-3.5 text-lime-700" />
+					) : status === "loading" ? (
+						<LoaderCircleIcon
+							className={cn(
+								"size-3.5 text-orange-600",
+								!reducedMotion && "animate-spin",
+							)}
+						/>
+					) : (
+						<ShieldAlertIcon className="size-3.5 text-amber-700" />
+					)}
+					<span className="font-medium">
+						{status === "ready"
+							? "Avatar live"
+							: status === "loading"
+								? "Loading avatar"
+								: "Fallback mode"}
+					</span>
+				</div>
+				<div className="hidden rounded-full border border-white/60 bg-white/62 px-3 py-1.5 text-muted-foreground text-xs shadow-sm backdrop-blur-xl sm:block">
+					{speechState === "talking"
+						? "Voice active"
+						: bodyState === "thinking"
+							? "Preparing a reply"
+							: "Standing by"}
+				</div>
+			</div>
+
+			{canRenderAvatar ? (
+				<Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
+					<ambientLight intensity={1.2} />
+					<directionalLight position={[1, 1, 1]} intensity={1.5} />
+					<VRMAvatar
+						emotionState={emotionState}
+						bodyState={bodyState}
+						reducedMotion={reducedMotion}
+						speechState={speechState}
+						onStatusChange={setStatus}
+					/>
+				</Canvas>
+			) : null}
+
+			{isLoading ? (
+				<div className="pointer-events-none absolute inset-x-6 bottom-6 rounded-2xl border border-white/60 bg-white/72 px-4 py-3 shadow-sm backdrop-blur-xl">
+					<div className="flex items-center gap-2 text-foreground text-sm">
+						<LoaderCircleIcon
+							className={cn(
+								"size-4 text-orange-600",
+								!reducedMotion && "animate-spin",
+							)}
+						/>
+						<span className="font-medium">Warming up the avatar stage</span>
+					</div>
+					<p className="mt-1 text-muted-foreground text-xs leading-5">
+						Chat is ready immediately. The live model will fade in as soon as
+						the character rig finishes loading.
+					</p>
+				</div>
+			) : null}
+
+			{showFallback ? <AvatarFallback status={status} /> : null}
 		</div>
 	);
 }

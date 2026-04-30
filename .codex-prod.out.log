@@ -1,0 +1,10 @@
+
+> fyp-avatar@0.1.0 start
+> next start --hostname 127.0.0.1 --port 3105
+
+▲ Next.js 16.1.6
+- Local:         http://127.0.0.1:3105
+- Network:       http://127.0.0.1:3105
+
+✓ Starting...
+✓ Ready in 1449ms

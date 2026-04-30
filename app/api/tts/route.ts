@@ -7,7 +7,8 @@ import {
 	jsonError,
 	pickMostConstrainedRateLimit,
 } from "@/lib/server/api";
-import { resolveSession } from "@/lib/server/session";
+import { resolveRequestIdentity } from "@/lib/server/auth";
+import { validateProductionServerConfig } from "@/lib/server/production-config";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ const TTS_IP_RATE_LIMIT = {
 	limit: 240,
 	windowMs: 10 * 60 * 1_000,
 } as const;
+const E2E_TTS_MODE = process.env.E2E_TTS_MODE?.trim() || "";
 
 const openai = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
@@ -27,14 +29,24 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
 	const requestId = crypto.randomUUID();
+	const configCheck = validateProductionServerConfig({
+		requiresOpenAi: E2E_TTS_MODE !== "fail",
+	});
+	if (!configCheck.ok) {
+		console.error(`[tts:${requestId}] ${configCheck.logMessage}`);
+		return jsonError(500, configCheck.clientMessage, { requestId });
+	}
+
 	const originCheck = ensureAllowedOrigin(req);
-	const session = resolveSession(req);
+	const identity = await resolveRequestIdentity(req);
 	const responseHeaders = new Headers({
 		Vary: "Origin, Referer, Cookie",
 	});
 
-	if (session.ok && session.setCookieHeader) {
-		responseHeaders.append("Set-Cookie", session.setCookieHeader);
+	if (identity.ok) {
+		for (const [key, value] of identity.headers.entries()) {
+			responseHeaders.append(key, value);
+		}
 	}
 
 	if (!originCheck.allowed) {
@@ -44,8 +56,8 @@ export async function POST(req: Request) {
 		});
 	}
 
-	if (!session.ok) {
-		console.error(`[tts:${requestId}] ${session.message}`);
+	if (!identity.ok) {
+		console.error(`[tts:${requestId}] ${identity.message}`);
 		return jsonError(500, "Session protection is not configured.", {
 			requestId,
 			headers: responseHeaders,
@@ -57,7 +69,9 @@ export async function POST(req: Request) {
 		...TTS_IP_RATE_LIMIT,
 	});
 	const sessionRateLimit = await consumeRateLimit({
-		key: `tts:session:${session.sessionId}`,
+		key: identity.session.user
+			? `tts:user:${identity.session.user.id}`
+			: `tts:session:${identity.sessionId}`,
 		...TTS_SESSION_RATE_LIMIT,
 	});
 	const activeRateLimit = pickMostConstrainedRateLimit(
@@ -110,6 +124,14 @@ export async function POST(req: Request) {
 					headers: responseHeaders,
 				},
 			);
+		}
+
+		if (E2E_TTS_MODE === "fail") {
+			return jsonError(503, "TTS is disabled for end-to-end test mode.", {
+				requestId,
+				rateLimit: activeRateLimit,
+				headers: responseHeaders,
+			});
 		}
 
 		if (!process.env.OPENAI_API_KEY) {

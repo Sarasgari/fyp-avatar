@@ -13,9 +13,12 @@
 		"includes": [
 			"**",
 			"!**/.next",
+			"!**/.playwright-state",
 			"!**/coverage",
 			"!**/dist-tests",
 			"!**/node_modules",
+			"!**/playwright-report",
+			"!**/test-results",
 			"!public/models"
 		]
 	},
