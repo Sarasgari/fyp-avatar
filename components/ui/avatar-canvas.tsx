@@ -1134,7 +1134,7 @@ function VRMAvatar({
 
 	if (!vrm) return null;
 
-	return <primitive object={vrm.scene} scale={1.1} />;
+	return <primitive object={vrm.scene} scale={0.95} />;
 }
 
 type AvatarCanvasProps = {
@@ -1216,7 +1216,7 @@ export default function AvatarCanvas({
 	const showFallback = status === "error" || status === "unsupported";
 
 	return (
-		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[28px] border border-white/45 bg-[linear-gradient(150deg,rgba(255,246,205,0.92)_0%,rgba(255,190,113,0.84)_48%,rgba(245,83,59,0.72)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[24px] border border-white/55 bg-[linear-gradient(150deg,rgba(225,248,255,0.96)_0%,rgba(196,236,255,0.88)_48%,rgba(206,245,175,0.82)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
 			<div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-between gap-3">
 				<div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/72 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
 					{status === "ready" ? (
@@ -1249,7 +1249,10 @@ export default function AvatarCanvas({
 			</div>
 
 			{canRenderAvatar ? (
-				<Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
+				<Canvas
+					camera={{ position: [-0.9, 1.2, 3.35], fov: 24 }}
+					gl={{ preserveDrawingBuffer: true }}
+				>
 					<ambientLight intensity={1.2} />
 					<directionalLight position={[1, 1, 1]} intensity={1.5} />
 					<VRMAvatar

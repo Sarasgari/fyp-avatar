@@ -21,12 +21,18 @@ import { useEffect, useRef, useState } from "react";
 import { PersistentThread } from "@/components/assistant-ui/persistent-thread";
 import { AccountControls } from "@/components/auth/account-controls";
 import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
+import AppScene from "@/components/scene/app-scene";
 import AvatarCanvas, {
 	type AvatarCanvasStatus,
 } from "@/components/ui/avatar-canvas";
 import { Button } from "@/components/ui/button";
 import type { AuthSessionState } from "@/lib/auth";
-import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
+import {
+	type BodyState,
+	type EmotionState,
+	emotionToAvatarState,
+	type SpeechState,
+} from "@/lib/avatar-state";
 import type { AssistantChatUIMessage } from "@/lib/chat-response";
 import {
 	DEFAULT_USER_PREFERENCES,
@@ -330,6 +336,12 @@ export const Assistant = () => {
 		avatarStatus,
 		preferences.avatarVisible,
 	);
+	const sceneAvatarState =
+		speechState === "talking"
+			? "talking"
+			: bodyState === "thinking"
+				? "thinking"
+				: emotionToAvatarState(emotionState);
 	const voiceStatusModel = getVoiceStatusModel(
 		speechState,
 		bodyState,
@@ -340,9 +352,10 @@ export const Assistant = () => {
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
-			<div className="relative h-screen overflow-hidden bg-[linear-gradient(128deg,#ffdcb2_0%,#ffad8d_34%,#fb4a3d_100%)] text-foreground">
-				<div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,246,218,0.62)_0%,rgba(255,166,126,0.18)_44%,rgba(138,45,35,0.26)_100%)]" />
-				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-[linear-gradient(0deg,rgba(255,236,177,0.72),rgba(255,236,177,0))]" />
+			<div className="relative h-screen overflow-hidden bg-sky-100 text-foreground">
+				<AppScene avatarState={sceneAvatarState} />
+				<div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(239,250,255,0.58)_0%,rgba(239,250,255,0.32)_42%,rgba(239,250,255,0.02)_100%)]" />
+				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(240,253,244,0.88),rgba(240,253,244,0))]" />
 
 				<div
 					className={cn(
@@ -352,7 +365,7 @@ export const Assistant = () => {
 				>
 					<header
 						className={cn(
-							"rounded-full border border-white/60 bg-white/74 px-5 py-3 shadow-[0_18px_60px_-32px_rgba(75,28,20,0.55)] backdrop-blur-xl sm:px-6",
+							"rounded-[26px] border border-white/70 bg-white/68 px-5 py-3 shadow-[0_18px_60px_-32px_rgba(15,78,99,0.45)] backdrop-blur-xl sm:px-6",
 							compactChat && "px-4 py-4 sm:px-5",
 						)}
 					>
@@ -362,10 +375,10 @@ export const Assistant = () => {
 									<BotIcon className="size-3.5" />
 									Avatar assistant
 								</div>
-								<h1 className="mt-2 max-w-3xl font-semibold text-2xl text-[#4a2119] tracking-tight text-balance sm:text-3xl">
-									Your expressive AI companion, live on stage.
+								<h1 className="mt-2 max-w-3xl font-semibold text-2xl text-slate-950 tracking-tight text-balance sm:text-3xl">
+									Your expressive AI companion in a clean 3D world.
 								</h1>
-								<p className="mt-1 max-w-2xl text-[#6f4a43] text-sm leading-6">
+								<p className="mt-1 max-w-2xl text-slate-700 text-sm leading-6">
 									Chat, listen, and watch the avatar react with mood, posture,
 									and voice cues.
 								</p>
@@ -421,16 +434,16 @@ export const Assistant = () => {
 					>
 						<section
 							className={cn(
-								"flex min-h-[22rem] flex-col rounded-[32px] border border-white/45 bg-white/32 p-4 shadow-[0_22px_70px_-36px_rgba(77,28,21,0.55)] backdrop-blur-xl sm:p-5",
+								"flex min-h-[22rem] flex-col rounded-[26px] border border-white/60 bg-white/38 p-4 shadow-[0_22px_70px_-36px_rgba(15,78,99,0.45)] backdrop-blur-xl sm:p-5",
 								compactChat && "p-3.5 sm:p-4",
 							)}
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div>
-									<h2 className="font-medium text-[#4a2119] text-base">
+									<h2 className="font-medium text-slate-950 text-base">
 										Avatar stage
 									</h2>
-									<p className="mt-1 text-[#6f4a43] text-sm leading-6">
+									<p className="mt-1 text-slate-700 text-sm leading-6">
 										Live facial mood, posture, and speech cues stay in sync.
 									</p>
 								</div>
@@ -453,7 +466,7 @@ export const Assistant = () => {
 								</Button>
 							</div>
 
-							<div className="mt-4 min-h-0 flex-1">
+							<div className="mt-4 h-[22rem] min-h-0 md:h-auto md:flex-1">
 								{preferences.avatarVisible ? (
 									<AvatarCanvas
 										key={avatarRuntimeKey}
@@ -469,7 +482,7 @@ export const Assistant = () => {
 							</div>
 
 							<div className="mt-4 grid gap-2 sm:grid-cols-2">
-								<div className="rounded-2xl border border-white/45 bg-white/56 px-4 py-3 backdrop-blur">
+								<div className="rounded-2xl border border-white/55 bg-white/86 px-4 py-3 backdrop-blur">
 									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
 										Posture
 									</p>
@@ -477,7 +490,7 @@ export const Assistant = () => {
 										{bodyLabels[bodyState]}
 									</p>
 								</div>
-								<div className="rounded-2xl border border-white/45 bg-white/56 px-4 py-3 backdrop-blur">
+								<div className="rounded-2xl border border-white/55 bg-white/86 px-4 py-3 backdrop-blur">
 									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
 										Voice flow
 									</p>
@@ -494,7 +507,7 @@ export const Assistant = () => {
 							</div>
 						</section>
 
-						<section className="min-h-0 overflow-hidden rounded-[32px] border border-white/55 bg-white/78 shadow-[0_22px_70px_-34px_rgba(77,28,21,0.58)] backdrop-blur-xl">
+						<section className="min-h-0 overflow-hidden rounded-[26px] border border-white/65 bg-white/72 shadow-[0_22px_70px_-34px_rgba(15,78,99,0.42)] backdrop-blur-xl">
 							<PersistentThread
 								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
 								compact={compactChat}

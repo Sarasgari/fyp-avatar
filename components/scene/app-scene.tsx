@@ -18,425 +18,260 @@ type PointerRef = {
 	current: PointerState;
 };
 
+const stateSurfaceColors: Record<AvatarState, string> = {
+	idle: "#7dd3fc",
+	thinking: "#facc15",
+	talking: "#2dd4bf",
+	happy: "#86efac",
+	sad: "#93c5fd",
+	anxious: "#fdba74",
+	angry: "#fca5a5",
+	confused: "#bef264",
+	empathetic: "#f9a8d4",
+};
+
 const dampFactor = (speed: number, delta: number) =>
 	1 - Math.exp(-speed * delta);
 
-type ParticleFieldProps = {
-	avatarState: AvatarState;
-	pointerRef: PointerRef;
-};
-
-const ParticleField = ({ avatarState, pointerRef }: ParticleFieldProps) => {
-	const pointsRef = useRef<THREE.Points>(null);
-	const materialRef = useRef<THREE.PointsMaterial>(null);
-	const targetColor = useMemo(
-		() => new THREE.Color(AVATAR_STATE_ACCENT_HEX[avatarState]),
-		[avatarState],
-	);
-	const energy = getAvatarStateEnergy(avatarState);
-
-	const positions = useMemo(() => {
-		const count = 360;
-		const data = new Float32Array(count * 3);
-
-		for (let index = 0; index < count; index += 1) {
-			const stride = index * 3;
-			const radius = 2.2 + Math.random() * 5.6;
-			const angle = Math.random() * Math.PI * 2;
-			const height = (Math.random() - 0.5) * 5.2;
-
-			data[stride] = Math.cos(angle) * radius;
-			data[stride + 1] = height;
-			data[stride + 2] = -1.5 - Math.random() * 8;
-		}
-
-		return data;
-	}, []);
-
-	useFrame(({ clock }, delta) => {
-		const points = pointsRef.current;
-		const material = materialRef.current;
-		if (!points || !material) return;
-
-		const time = clock.getElapsedTime();
-		const { x, y } = pointerRef.current;
-
-		points.rotation.y += delta * (0.018 + energy * 0.018);
-		points.rotation.x = THREE.MathUtils.damp(
-			points.rotation.x,
-			y * 0.08,
-			3.5,
-			delta,
-		);
-		points.position.x = THREE.MathUtils.damp(
-			points.position.x,
-			x * 0.55,
-			2.8,
-			delta,
-		);
-		points.position.y = THREE.MathUtils.damp(
-			points.position.y,
-			y * 0.25 + Math.sin(time * 0.35) * 0.12,
-			2.2,
-			delta,
-		);
-
-		material.size = THREE.MathUtils.damp(
-			material.size,
-			0.034 + energy * 0.026,
-			6,
-			delta,
-		);
-		material.opacity = THREE.MathUtils.damp(
-			material.opacity,
-			0.24 + energy * 0.22,
-			4,
-			delta,
-		);
-		material.color.lerp(targetColor, dampFactor(3.5, delta));
-	});
-
-	return (
-		<points ref={pointsRef} position={[0, 0, -1.5]}>
-			<bufferGeometry>
-				<bufferAttribute attach="attributes-position" args={[positions, 3]} />
-			</bufferGeometry>
-			<pointsMaterial
-				ref={materialRef}
-				color={AVATAR_STATE_ACCENT_HEX[avatarState]}
-				size={0.05}
-				sizeAttenuation
-				transparent
-				opacity={0.3}
-				depthWrite={false}
-				blending={THREE.AdditiveBlending}
-			/>
-		</points>
-	);
-};
-
-type GlowOrbProps = {
-	avatarState: AvatarState;
-	colorMultiplier?: number;
-	position: [number, number, number];
-	radius: number;
-	speed: number;
-};
-
-const GlowOrb = ({
-	avatarState,
-	colorMultiplier = 1,
+const LowPolyTree = ({
 	position,
-	radius,
-	speed,
-}: GlowOrbProps) => {
-	const meshRef = useRef<THREE.Mesh>(null);
-	const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-	const targetColor = useMemo(
-		() => new THREE.Color(AVATAR_STATE_ACCENT_HEX[avatarState]),
-		[avatarState],
-	);
-	const energy = getAvatarStateEnergy(avatarState);
-
-	useFrame(({ clock }, delta) => {
-		const mesh = meshRef.current;
-		const material = materialRef.current;
-		if (!mesh || !material) return;
-
-		const time = clock.getElapsedTime();
-
-		mesh.position.x = position[0] + Math.sin(time * speed) * 0.18;
-		mesh.position.y = position[1] + Math.cos(time * speed * 0.82) * 0.14;
-		mesh.scale.setScalar(
-			radius *
-				(1 + Math.sin(time * (speed * 0.75) + radius) * 0.06 + energy * 0.08),
-		);
-
-		material.opacity = THREE.MathUtils.damp(
-			material.opacity,
-			0.06 + energy * 0.08,
-			4,
-			delta,
-		);
-		material.color.copy(targetColor).multiplyScalar(colorMultiplier);
-	});
-
-	return (
-		<mesh ref={meshRef} position={position}>
-			<sphereGeometry args={[1, 32, 32]} />
-			<meshBasicMaterial
-				ref={materialRef}
-				transparent
-				opacity={0.12}
-				depthWrite={false}
-				blending={THREE.AdditiveBlending}
-			/>
+	scale = 1,
+}: {
+	position: [number, number, number];
+	scale?: number;
+}) => (
+	<group position={position} scale={scale}>
+		<mesh position={[0, 0.24, 0]}>
+			<cylinderGeometry args={[0.055, 0.08, 0.48, 5]} />
+			<meshStandardMaterial color="#a76b43" flatShading roughness={0.7} />
 		</mesh>
-	);
-};
+		<mesh position={[0, 0.62, 0]}>
+			<icosahedronGeometry args={[0.28, 0]} />
+			<meshStandardMaterial color="#5fbf73" flatShading roughness={0.82} />
+		</mesh>
+		<mesh position={[0.1, 0.75, -0.04]}>
+			<icosahedronGeometry args={[0.19, 0]} />
+			<meshStandardMaterial color="#89d97e" flatShading roughness={0.82} />
+		</mesh>
+	</group>
+);
 
-type EnergyCoreProps = {
-	avatarState: AvatarState;
-};
+const Building = ({
+	color,
+	height,
+	position,
+}: {
+	color: string;
+	height: number;
+	position: [number, number, number];
+}) => (
+	<group position={position}>
+		<mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+			<boxGeometry args={[0.92, height, 0.92]} />
+			<meshStandardMaterial color={color} flatShading roughness={0.68} />
+		</mesh>
+		<mesh position={[0, height + 0.035, 0]}>
+			<boxGeometry args={[1, 0.07, 1]} />
+			<meshStandardMaterial color="#f8fafc" flatShading roughness={0.55} />
+		</mesh>
+		<mesh position={[0.03, height + 0.08, 0.04]}>
+			<boxGeometry args={[0.72, 0.045, 0.72]} />
+			<meshStandardMaterial color="#94a3b8" flatShading roughness={0.7} />
+		</mesh>
+	</group>
+);
 
-const EnergyCore = ({ avatarState }: EnergyCoreProps) => {
-	const outerMeshRef = useRef<THREE.Mesh>(null);
-	const innerMeshRef = useRef<THREE.Mesh>(null);
-	const fillMeshRef = useRef<THREE.Mesh>(null);
-	const outerMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-	const innerMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-	const fillMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-	const targetColor = useMemo(
-		() => new THREE.Color(AVATAR_STATE_ACCENT_HEX[avatarState]),
-		[avatarState],
-	);
-	const energy = getAvatarStateEnergy(avatarState);
+const RoadTile = ({ position }: { position: [number, number, number] }) => (
+	<group position={position}>
+		<mesh receiveShadow>
+			<boxGeometry args={[1.1, 0.035, 3.35]} />
+			<meshStandardMaterial color="#64748b" roughness={0.78} />
+		</mesh>
+		<mesh position={[0, 0.022, 0]}>
+			<boxGeometry args={[0.045, 0.012, 2.72]} />
+			<meshStandardMaterial color="#f8fafc" roughness={0.4} />
+		</mesh>
+	</group>
+);
 
-	useFrame(({ clock }, delta) => {
-		const time = clock.getElapsedTime();
+const CityBase = () => (
+	<group rotation={[0, -Math.PI / 4, 0]} position={[0, -1.7, -1.6]}>
+		<mesh receiveShadow>
+			<boxGeometry args={[7.6, 0.18, 7.6]} />
+			<meshStandardMaterial color="#b7e27c" flatShading roughness={0.82} />
+		</mesh>
+		<mesh position={[0, 0.11, 0]}>
+			<boxGeometry args={[7.24, 0.04, 7.24]} />
+			<meshStandardMaterial color="#95d95d" flatShading roughness={0.75} />
+		</mesh>
 
-		if (outerMeshRef.current) {
-			outerMeshRef.current.rotation.x += delta * 0.08;
-			outerMeshRef.current.rotation.y += delta * (0.14 + energy * 0.1);
-			outerMeshRef.current.scale.setScalar(
-				1.9 + Math.sin(time * 0.7) * 0.06 + energy * 0.08,
-			);
-		}
-
-		if (innerMeshRef.current) {
-			innerMeshRef.current.rotation.x -= delta * 0.16;
-			innerMeshRef.current.rotation.z += delta * 0.12;
-			innerMeshRef.current.scale.setScalar(
-				1.22 + Math.cos(time * 1.05) * 0.04 + energy * 0.05,
-			);
-		}
-
-		if (fillMeshRef.current) {
-			fillMeshRef.current.scale.setScalar(
-				1.1 + Math.sin(time * 1.3) * 0.04 + energy * 0.05,
-			);
-		}
-
-		outerMaterialRef.current?.color.lerp(targetColor, dampFactor(4, delta));
-		innerMaterialRef.current?.color.lerp(targetColor, dampFactor(4, delta));
-		fillMaterialRef.current?.color.lerp(targetColor, dampFactor(4, delta));
-
-		if (outerMaterialRef.current) {
-			outerMaterialRef.current.opacity = THREE.MathUtils.damp(
-				outerMaterialRef.current.opacity,
-				0.2 + energy * 0.25,
-				5,
-				delta,
-			);
-		}
-
-		if (innerMaterialRef.current) {
-			innerMaterialRef.current.opacity = THREE.MathUtils.damp(
-				innerMaterialRef.current.opacity,
-				0.15 + energy * 0.18,
-				5,
-				delta,
-			);
-		}
-
-		if (fillMaterialRef.current) {
-			fillMaterialRef.current.opacity = THREE.MathUtils.damp(
-				fillMaterialRef.current.opacity,
-				0.05 + energy * 0.08,
-				4,
-				delta,
-			);
-		}
-	});
-
-	return (
-		<group position={[0, 0.75, -4.75]}>
-			<mesh ref={fillMeshRef}>
-				<icosahedronGeometry args={[0.92, 3]} />
-				<meshBasicMaterial
-					ref={fillMaterialRef}
-					color={AVATAR_STATE_ACCENT_HEX[avatarState]}
-					transparent
-					opacity={0.08}
-					depthWrite={false}
-					blending={THREE.AdditiveBlending}
-				/>
-			</mesh>
-			<mesh ref={outerMeshRef}>
-				<icosahedronGeometry args={[1, 1]} />
-				<meshBasicMaterial
-					ref={outerMaterialRef}
-					color={AVATAR_STATE_ACCENT_HEX[avatarState]}
-					transparent
-					opacity={0.24}
-					wireframe
-					depthWrite={false}
-				/>
-			</mesh>
-			<mesh ref={innerMeshRef}>
-				<octahedronGeometry args={[0.68, 0]} />
-				<meshBasicMaterial
-					ref={innerMaterialRef}
-					color={AVATAR_STATE_ACCENT_HEX[avatarState]}
-					transparent
-					opacity={0.18}
-					wireframe
-					depthWrite={false}
-				/>
-			</mesh>
+		<RoadTile position={[-1.9, 0.16, 0]} />
+		<RoadTile position={[1.9, 0.16, 0]} />
+		<group rotation={[0, Math.PI / 2, 0]}>
+			<RoadTile position={[0, 0.17, 0]} />
 		</group>
-	);
-};
 
-type SignalBandProps = {
-	avatarState: AvatarState;
-	radius: number;
-	speed: number;
-	tilt: number;
-	yOffset: number;
-};
+		<Building color="#f0c987" height={1.12} position={[-2.7, 0.19, -2.55]} />
+		<Building color="#8ecae6" height={0.86} position={[-2.75, 0.19, 2.45]} />
+		<Building color="#f6a49b" height={1.38} position={[2.55, 0.19, -2.15]} />
+		<Building color="#a7c7a1" height={0.78} position={[2.62, 0.19, 2.52]} />
 
-const SignalBand = ({
-	avatarState,
-	radius,
-	speed,
-	tilt,
-	yOffset,
-}: SignalBandProps) => {
-	const meshRef = useRef<THREE.Mesh>(null);
-	const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-	const targetColor = useMemo(
+		<LowPolyTree position={[-3.2, 0.18, 0.85]} scale={1.15} />
+		<LowPolyTree position={[-0.9, 0.18, 2.85]} scale={0.92} />
+		<LowPolyTree position={[0.9, 0.18, -3.05]} scale={0.88} />
+		<LowPolyTree position={[3.2, 0.18, 0.82]} scale={1.05} />
+	</group>
+);
+
+const FloatingAvatar = ({ avatarState }: { avatarState: AvatarState }) => {
+	const groupRef = useRef<THREE.Group>(null);
+	const headMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+	const bodyMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+	const accentColor = useMemo(
 		() => new THREE.Color(AVATAR_STATE_ACCENT_HEX[avatarState]),
 		[avatarState],
 	);
-	const energy = getAvatarStateEnergy(avatarState);
-
-	useFrame(({ clock }, delta) => {
-		const mesh = meshRef.current;
-		const material = materialRef.current;
-		if (!mesh || !material) return;
-
-		const time = clock.getElapsedTime();
-		mesh.rotation.z += delta * speed;
-		mesh.rotation.y = tilt + Math.sin(time * speed * 0.7 + radius) * 0.12;
-		mesh.position.y = yOffset + Math.sin(time * speed * 0.85 + radius) * 0.08;
-		mesh.scale.setScalar(
-			1 + Math.sin(time * speed + radius) * 0.02 + energy * 0.04,
-		);
-
-		material.opacity = THREE.MathUtils.damp(
-			material.opacity,
-			0.14 + energy * 0.14,
-			4.5,
-			delta,
-		);
-		material.color.lerp(targetColor, dampFactor(4, delta));
-	});
-
-	return (
-		<mesh
-			ref={meshRef}
-			position={[0, yOffset, -4.5]}
-			rotation={[Math.PI / 2.45, tilt, 0]}
-		>
-			<torusGeometry args={[radius, 0.028, 18, 90]} />
-			<meshBasicMaterial
-				ref={materialRef}
-				color={AVATAR_STATE_ACCENT_HEX[avatarState]}
-				transparent
-				opacity={0.2}
-				depthWrite={false}
-				blending={THREE.AdditiveBlending}
-			/>
-		</mesh>
+	const surfaceColor = useMemo(
+		() => new THREE.Color(stateSurfaceColors[avatarState]),
+		[avatarState],
 	);
-};
-
-type FocalClusterProps = {
-	avatarState: AvatarState;
-	pointerRef: PointerRef;
-};
-
-const FocalCluster = ({ avatarState, pointerRef }: FocalClusterProps) => {
-	const groupRef = useRef<THREE.Group>(null);
+	const energy = getAvatarStateEnergy(avatarState);
 
 	useFrame(({ clock }, delta) => {
 		const group = groupRef.current;
 		if (!group) return;
 
 		const time = clock.getElapsedTime();
-		const { x, y } = pointerRef.current;
+		group.position.y = 0.42 + Math.sin(time * (0.82 + energy * 0.16)) * 0.08;
+		group.rotation.y += delta * (0.18 + energy * 0.12);
+		group.rotation.z = Math.sin(time * 0.7) * 0.035;
+		headMaterialRef.current?.color.lerp(surfaceColor, dampFactor(3.6, delta));
+		bodyMaterialRef.current?.color.lerp(accentColor, dampFactor(3.6, delta));
+	});
 
-		group.position.x = THREE.MathUtils.damp(
-			group.position.x,
-			x * 0.75,
-			2.4,
-			delta,
-		);
-		group.position.y = THREE.MathUtils.damp(
-			group.position.y,
-			1.1 + y * 0.35 + Math.sin(time * 0.45) * 0.08,
-			2.2,
-			delta,
-		);
+	return (
+		<group ref={groupRef} position={[0, 0.42, 0.12]}>
+			<mesh position={[0, 0.76, 0]} castShadow>
+				<octahedronGeometry args={[0.46, 0]} />
+				<meshStandardMaterial
+					ref={headMaterialRef}
+					color={stateSurfaceColors[avatarState]}
+					flatShading
+					roughness={0.54}
+				/>
+			</mesh>
+			<mesh position={[0, 0.24, 0]} castShadow>
+				<icosahedronGeometry args={[0.48, 0]} />
+				<meshStandardMaterial
+					ref={bodyMaterialRef}
+					color={AVATAR_STATE_ACCENT_HEX[avatarState]}
+					flatShading
+					roughness={0.58}
+				/>
+			</mesh>
+			<mesh position={[-0.45, 0.22, 0]} rotation={[0, 0, -0.55]} castShadow>
+				<tetrahedronGeometry args={[0.28, 0]} />
+				<meshStandardMaterial color="#e0f2fe" flatShading roughness={0.6} />
+			</mesh>
+			<mesh position={[0.45, 0.22, 0]} rotation={[0, 0, 0.55]} castShadow>
+				<tetrahedronGeometry args={[0.28, 0]} />
+				<meshStandardMaterial color="#e0f2fe" flatShading roughness={0.6} />
+			</mesh>
+		</group>
+	);
+};
+
+const FloatingShard = ({
+	avatarState,
+	index,
+	position,
+}: {
+	avatarState: AvatarState;
+	index: number;
+	position: [number, number, number];
+}) => {
+	const meshRef = useRef<THREE.Mesh>(null);
+	const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+	const targetColor = useMemo(
+		() => new THREE.Color(AVATAR_STATE_ACCENT_HEX[avatarState]),
+		[avatarState],
+	);
+
+	useFrame(({ clock }, delta) => {
+		const mesh = meshRef.current;
+		if (!mesh) return;
+
+		const time = clock.getElapsedTime() + index * 0.7;
+		mesh.position.y = position[1] + Math.sin(time * 0.54) * 0.12;
+		mesh.rotation.x += delta * (0.12 + index * 0.015);
+		mesh.rotation.y += delta * (0.18 + index * 0.02);
+		materialRef.current?.color.lerp(targetColor, dampFactor(3, delta));
+	});
+
+	return (
+		<mesh ref={meshRef} position={position} castShadow>
+			<tetrahedronGeometry args={[0.18 + index * 0.025, 0]} />
+			<meshStandardMaterial
+				ref={materialRef}
+				color={AVATAR_STATE_ACCENT_HEX[avatarState]}
+				flatShading
+				roughness={0.5}
+				metalness={0.05}
+			/>
+		</mesh>
+	);
+};
+
+const SceneRig = ({
+	avatarState,
+	pointerRef,
+}: {
+	avatarState: AvatarState;
+	pointerRef: PointerRef;
+}) => {
+	const groupRef = useRef<THREE.Group>(null);
+
+	useFrame((_, delta) => {
+		const group = groupRef.current;
+		if (!group) return;
+
 		group.rotation.x = THREE.MathUtils.damp(
 			group.rotation.x,
-			y * 0.08,
-			3,
+			pointerRef.current.y * 0.035,
+			2.4,
 			delta,
 		);
 		group.rotation.y = THREE.MathUtils.damp(
 			group.rotation.y,
-			x * 0.16 + Math.sin(time * 0.28) * 0.05,
-			3,
+			pointerRef.current.x * 0.055,
+			2.4,
 			delta,
 		);
 	});
 
 	return (
-		<group ref={groupRef} position={[0, 1.1, 0]}>
-			<GlowOrb
+		<group ref={groupRef}>
+			<CityBase />
+			<FloatingAvatar avatarState={avatarState} />
+			<FloatingShard
 				avatarState={avatarState}
-				position={[-2.8, 1, -7.4]}
-				radius={1.65}
-				speed={0.3}
-				colorMultiplier={0.85}
+				index={0}
+				position={[-1.65, 0.2, -0.5]}
 			/>
-			<GlowOrb
+			<FloatingShard
 				avatarState={avatarState}
-				position={[2.65, -0.3, -7]}
-				radius={1.2}
-				speed={0.42}
-				colorMultiplier={0.7}
+				index={1}
+				position={[1.45, 0.95, -0.8]}
 			/>
-			<GlowOrb
+			<FloatingShard
 				avatarState={avatarState}
-				position={[0.25, 2.15, -6.8]}
-				radius={0.95}
-				speed={0.52}
-				colorMultiplier={1.05}
+				index={2}
+				position={[1.9, -0.2, 0.75]}
 			/>
-			<EnergyCore avatarState={avatarState} />
-			<SignalBand
+			<FloatingShard
 				avatarState={avatarState}
-				radius={1.25}
-				speed={0.18}
-				tilt={0.15}
-				yOffset={0.55}
-			/>
-			<SignalBand
-				avatarState={avatarState}
-				radius={1.7}
-				speed={-0.12}
-				tilt={-0.4}
-				yOffset={0.9}
-			/>
-			<SignalBand
-				avatarState={avatarState}
-				radius={2.2}
-				speed={0.08}
-				tilt={0.55}
-				yOffset={0.15}
+				index={3}
+				position={[-1.25, 1.2, 0.85]}
 			/>
 		</group>
 	);
@@ -470,17 +305,28 @@ export default function AppScene({ avatarState }: AppSceneProps) {
 			aria-hidden
 		>
 			<Canvas
+				orthographic
+				shadows
 				dpr={[1, 1.5]}
-				camera={{ position: [0, 0, 8], fov: 42 }}
+				camera={{ position: [5.4, 5.2, 6.8], zoom: 74, near: 0.1, far: 100 }}
 				gl={{
 					antialias: true,
 					alpha: true,
 					powerPreference: "high-performance",
+					preserveDrawingBuffer: true,
 				}}
 			>
-				<fog attach="fog" args={["#020617", 8, 22]} />
-				<ParticleField avatarState={avatarState} pointerRef={pointerRef} />
-				<FocalCluster avatarState={avatarState} pointerRef={pointerRef} />
+				<color attach="background" args={["#c7ecff"]} />
+				<fog attach="fog" args={["#c7ecff", 9, 21]} />
+				<ambientLight intensity={1.7} />
+				<directionalLight
+					castShadow
+					position={[4, 8, 5]}
+					intensity={2.1}
+					shadow-mapSize={[1024, 1024]}
+				/>
+				<hemisphereLight args={["#e0f7ff", "#8dc56f", 1.1]} />
+				<SceneRig avatarState={avatarState} pointerRef={pointerRef} />
 			</Canvas>
 		</div>
 	);
