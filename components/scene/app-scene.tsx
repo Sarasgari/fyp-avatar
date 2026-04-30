@@ -19,15 +19,15 @@ type PointerRef = {
 };
 
 const stateSurfaceColors: Record<AvatarState, string> = {
-	idle: "#7dd3fc",
-	thinking: "#facc15",
-	talking: "#2dd4bf",
-	happy: "#86efac",
-	sad: "#93c5fd",
-	anxious: "#fdba74",
-	angry: "#fca5a5",
-	confused: "#bef264",
-	empathetic: "#f9a8d4",
+	idle: "#93d7ff",
+	thinking: "#bcd7ff",
+	talking: "#5da2ff",
+	happy: "#79c9ff",
+	sad: "#bddcff",
+	anxious: "#ff6b4a",
+	angry: "#f04438",
+	confused: "#8bb7ff",
+	empathetic: "#f7fbff",
 };
 
 const dampFactor = (speed: number, delta: number) =>
@@ -43,15 +43,15 @@ const LowPolyTree = ({
 	<group position={position} scale={scale}>
 		<mesh position={[0, 0.24, 0]}>
 			<cylinderGeometry args={[0.055, 0.08, 0.48, 5]} />
-			<meshStandardMaterial color="#a76b43" flatShading roughness={0.7} />
+			<meshStandardMaterial color="#7c93b8" flatShading roughness={0.7} />
 		</mesh>
 		<mesh position={[0, 0.62, 0]}>
 			<icosahedronGeometry args={[0.28, 0]} />
-			<meshStandardMaterial color="#5fbf73" flatShading roughness={0.82} />
+			<meshStandardMaterial color="#e8f4ff" flatShading roughness={0.82} />
 		</mesh>
 		<mesh position={[0.1, 0.75, -0.04]}>
 			<icosahedronGeometry args={[0.19, 0]} />
-			<meshStandardMaterial color="#89d97e" flatShading roughness={0.82} />
+			<meshStandardMaterial color="#b8dcff" flatShading roughness={0.82} />
 		</mesh>
 	</group>
 );
@@ -85,7 +85,7 @@ const RoadTile = ({ position }: { position: [number, number, number] }) => (
 	<group position={position}>
 		<mesh receiveShadow>
 			<boxGeometry args={[1.1, 0.035, 3.35]} />
-			<meshStandardMaterial color="#64748b" roughness={0.78} />
+			<meshStandardMaterial color="#2563eb" roughness={0.78} />
 		</mesh>
 		<mesh position={[0, 0.022, 0]}>
 			<boxGeometry args={[0.045, 0.012, 2.72]} />
@@ -98,11 +98,11 @@ const CityBase = () => (
 	<group rotation={[0, -Math.PI / 4, 0]} position={[0, -1.7, -1.6]}>
 		<mesh receiveShadow>
 			<boxGeometry args={[7.6, 0.18, 7.6]} />
-			<meshStandardMaterial color="#b7e27c" flatShading roughness={0.82} />
+			<meshStandardMaterial color="#6b7280" flatShading roughness={0.82} />
 		</mesh>
 		<mesh position={[0, 0.11, 0]}>
 			<boxGeometry args={[7.24, 0.04, 7.24]} />
-			<meshStandardMaterial color="#95d95d" flatShading roughness={0.75} />
+			<meshStandardMaterial color="#dbeafe" flatShading roughness={0.75} />
 		</mesh>
 
 		<RoadTile position={[-1.9, 0.16, 0]} />
@@ -111,10 +111,10 @@ const CityBase = () => (
 			<RoadTile position={[0, 0.17, 0]} />
 		</group>
 
-		<Building color="#f0c987" height={1.12} position={[-2.7, 0.19, -2.55]} />
-		<Building color="#8ecae6" height={0.86} position={[-2.75, 0.19, 2.45]} />
-		<Building color="#f6a49b" height={1.38} position={[2.55, 0.19, -2.15]} />
-		<Building color="#a7c7a1" height={0.78} position={[2.62, 0.19, 2.52]} />
+		<Building color="#2563eb" height={1.12} position={[-2.7, 0.19, -2.55]} />
+		<Building color="#60a5fa" height={0.86} position={[-2.75, 0.19, 2.45]} />
+		<Building color="#1d4ed8" height={1.38} position={[2.55, 0.19, -2.15]} />
+		<Building color="#bfdbfe" height={0.78} position={[2.62, 0.19, 2.52]} />
 
 		<LowPolyTree position={[-3.2, 0.18, 0.85]} scale={1.15} />
 		<LowPolyTree position={[-0.9, 0.18, 2.85]} scale={0.92} />
@@ -171,11 +171,11 @@ const FloatingAvatar = ({ avatarState }: { avatarState: AvatarState }) => {
 			</mesh>
 			<mesh position={[-0.45, 0.22, 0]} rotation={[0, 0, -0.55]} castShadow>
 				<tetrahedronGeometry args={[0.28, 0]} />
-				<meshStandardMaterial color="#e0f2fe" flatShading roughness={0.6} />
+				<meshStandardMaterial color="#f8fbff" flatShading roughness={0.6} />
 			</mesh>
 			<mesh position={[0.45, 0.22, 0]} rotation={[0, 0, 0.55]} castShadow>
 				<tetrahedronGeometry args={[0.28, 0]} />
-				<meshStandardMaterial color="#e0f2fe" flatShading roughness={0.6} />
+				<meshStandardMaterial color="#f8fbff" flatShading roughness={0.6} />
 			</mesh>
 		</group>
 	);
@@ -316,8 +316,8 @@ export default function AppScene({ avatarState }: AppSceneProps) {
 					preserveDrawingBuffer: true,
 				}}
 			>
-				<color attach="background" args={["#c7ecff"]} />
-				<fog attach="fog" args={["#c7ecff", 9, 21]} />
+				<color attach="background" args={["#78c6f4"]} />
+				<fog attach="fog" args={["#78c6f4", 9, 21]} />
 				<ambientLight intensity={1.7} />
 				<directionalLight
 					castShadow
@@ -325,7 +325,7 @@ export default function AppScene({ avatarState }: AppSceneProps) {
 					intensity={2.1}
 					shadow-mapSize={[1024, 1024]}
 				/>
-				<hemisphereLight args={["#e0f7ff", "#8dc56f", 1.1]} />
+				<hemisphereLight args={["#eaf7ff", "#4d7fd8", 1.1]} />
 				<SceneRig avatarState={avatarState} pointerRef={pointerRef} />
 			</Canvas>
 		</div>

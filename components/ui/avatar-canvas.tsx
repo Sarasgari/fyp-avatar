@@ -892,6 +892,138 @@ const dampExpressionValue = (
 	);
 };
 
+const RoomBlock = ({
+	color,
+	position,
+	scale,
+}: {
+	color: string;
+	position: [number, number, number];
+	scale: [number, number, number];
+}) => (
+	<mesh castShadow receiveShadow position={position}>
+		<boxGeometry args={scale} />
+		<meshStandardMaterial color={color} flatShading roughness={0.74} />
+	</mesh>
+);
+
+const RoomCrystal = ({
+	color,
+	position,
+	scale = 1,
+}: {
+	color: string;
+	position: [number, number, number];
+	scale?: number;
+}) => (
+	<group position={position} scale={scale}>
+		<mesh castShadow receiveShadow rotation={[0.2, 0.45, -0.08]}>
+			<octahedronGeometry args={[0.22, 0]} />
+			<meshStandardMaterial
+				color={color}
+				emissive={color}
+				emissiveIntensity={0.12}
+				flatShading
+				roughness={0.42}
+			/>
+		</mesh>
+	</group>
+);
+
+const StageRoom = () => (
+	<group position={[0, -0.9, -0.08]}>
+		<mesh receiveShadow position={[0, -0.07, -0.12]}>
+			<cylinderGeometry args={[1.45, 1.6, 0.18, 56]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.82} />
+		</mesh>
+		<mesh
+			receiveShadow
+			position={[0, 0.04, -0.1]}
+			rotation={[-Math.PI / 2, 0, 0]}
+		>
+			<circleGeometry args={[1.18, 48]} />
+			<meshStandardMaterial color="#f8fbff" roughness={0.76} />
+		</mesh>
+
+		<mesh receiveShadow position={[0, 0.7, -1.1]}>
+			<boxGeometry args={[3.7, 2.05, 0.12]} />
+			<meshStandardMaterial color="#a8dcff" roughness={0.78} />
+		</mesh>
+		<mesh receiveShadow position={[-1.88, 0.52, -0.3]} rotation={[0, 0.4, 0]}>
+			<boxGeometry args={[0.1, 1.72, 1.82]} />
+			<meshStandardMaterial color="#79c9ff" roughness={0.78} />
+		</mesh>
+		<mesh receiveShadow position={[1.88, 0.52, -0.3]} rotation={[0, -0.4, 0]}>
+			<boxGeometry args={[0.1, 1.72, 1.82]} />
+			<meshStandardMaterial color="#60a5fa" roughness={0.78} />
+		</mesh>
+
+		<mesh position={[0, 0.86, -1.18]}>
+			<boxGeometry args={[1.18, 0.66, 0.04]} />
+			<meshStandardMaterial
+				color="#eaf7ff"
+				emissive="#60a5fa"
+				emissiveIntensity={0.14}
+				roughness={0.46}
+			/>
+		</mesh>
+		<mesh position={[0, 0.86, -1.14]}>
+			<boxGeometry args={[1.32, 0.08, 0.08]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh position={[0, 0.48, -1.14]}>
+			<boxGeometry args={[1.32, 0.08, 0.08]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh position={[-0.66, 0.67, -1.14]}>
+			<boxGeometry args={[0.08, 0.46, 0.08]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh position={[0.66, 0.67, -1.14]}>
+			<boxGeometry args={[0.08, 0.46, 0.08]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+
+		<RoomBlock
+			color="#2563eb"
+			position={[-1.18, 0.05, -0.82]}
+			scale={[0.38, 0.28, 0.38]}
+		/>
+		<RoomBlock
+			color="#bfdbfe"
+			position={[-1.48, 0.19, -0.68]}
+			scale={[0.32, 0.32, 0.32]}
+		/>
+		<RoomBlock
+			color="#60a5fa"
+			position={[1.2, 0.05, -0.74]}
+			scale={[0.42, 0.26, 0.36]}
+		/>
+		<RoomBlock
+			color="#1d4ed8"
+			position={[1.52, 0.27, -0.62]}
+			scale={[0.28, 0.42, 0.28]}
+		/>
+
+		<RoomCrystal color="#f8fbff" position={[-1.28, 0.39, -0.48]} scale={1.08} />
+		<RoomCrystal color="#7dd3fc" position={[1.28, 0.44, -0.42]} scale={0.92} />
+		<RoomCrystal color="#3b82f6" position={[1.62, 0.64, -0.82]} scale={0.76} />
+
+		<mesh castShadow position={[-1.22, 1.22, -0.92]}>
+			<boxGeometry args={[0.7, 0.06, 0.18]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.7} />
+		</mesh>
+		<mesh castShadow position={[-1.44, 1.34, -0.92]}>
+			<boxGeometry args={[0.18, 0.18, 0.18]} />
+			<meshStandardMaterial color="#2563eb" flatShading roughness={0.64} />
+		</mesh>
+		<mesh castShadow position={[-1.08, 1.34, -0.92]} rotation={[0.1, 0.35, 0]}>
+			<tetrahedronGeometry args={[0.16, 0]} />
+			<meshStandardMaterial color="#f8fbff" flatShading roughness={0.58} />
+		</mesh>
+	</group>
+);
+
 function VRMAvatar({
 	emotionState,
 	bodyState,
@@ -937,6 +1069,12 @@ function VRMAvatar({
 				const loadedVrm = gltf.userData.vrm as VRM;
 				if (!loadedVrm) return;
 
+				loadedVrm.scene.traverse((child) => {
+					if (child instanceof THREE.Mesh) {
+						child.castShadow = true;
+						child.receiveShadow = true;
+					}
+				});
 				loadedVrm.scene.rotation.set(0, Math.PI, 0);
 				loadedVrm.scene.position.set(0, BASE_POSITION_Y, 0);
 				const bodyRig: BodyRig = {};
@@ -1175,14 +1313,12 @@ const AvatarFallback = ({
 				};
 
 	return (
-		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-amber-200/80 bg-[linear-gradient(160deg,rgba(255,230,161,0.9),rgba(255,255,255,0.82))] px-6 py-8 text-center shadow-sm">
-			<div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-800 shadow-sm">
+		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-blue-200/80 bg-[linear-gradient(160deg,rgba(230,247,255,0.94),rgba(255,255,255,0.84))] px-6 py-8 text-center shadow-sm">
+			<div className="flex size-12 items-center justify-center rounded-full bg-blue-100 text-blue-800 shadow-sm">
 				<ShieldAlertIcon className="size-6" />
 			</div>
-			<h3 className="mt-4 font-medium text-base text-amber-950">
-				{copy.title}
-			</h3>
-			<p className="mt-2 max-w-sm text-amber-900/80 text-sm leading-6">
+			<h3 className="mt-4 font-medium text-base text-blue-950">{copy.title}</h3>
+			<p className="mt-2 max-w-sm text-blue-900/80 text-sm leading-6">
 				{copy.description}
 			</p>
 		</div>
@@ -1216,20 +1352,20 @@ export default function AvatarCanvas({
 	const showFallback = status === "error" || status === "unsupported";
 
 	return (
-		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[24px] border border-white/55 bg-[linear-gradient(150deg,rgba(225,248,255,0.96)_0%,rgba(196,236,255,0.88)_48%,rgba(206,245,175,0.82)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[24px] border border-white/60 bg-[linear-gradient(150deg,rgba(230,247,255,0.98)_0%,rgba(120,198,244,0.62)_48%,rgba(191,219,254,0.88)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
 			<div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-between gap-3">
 				<div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/72 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
 					{status === "ready" ? (
-						<ShieldCheckIcon className="size-3.5 text-lime-700" />
+						<ShieldCheckIcon className="size-3.5 text-blue-700" />
 					) : status === "loading" ? (
 						<LoaderCircleIcon
 							className={cn(
-								"size-3.5 text-orange-600",
+								"size-3.5 text-blue-700",
 								!reducedMotion && "animate-spin",
 							)}
 						/>
 					) : (
-						<ShieldAlertIcon className="size-3.5 text-amber-700" />
+						<ShieldAlertIcon className="size-3.5 text-red-600" />
 					)}
 					<span className="font-medium">
 						{status === "ready"
@@ -1250,11 +1386,24 @@ export default function AvatarCanvas({
 
 			{canRenderAvatar ? (
 				<Canvas
-					camera={{ position: [-0.9, 1.2, 3.35], fov: 24 }}
+					shadows
+					camera={{ position: [-0.85, 1.05, 3.6], fov: 27 }}
 					gl={{ preserveDrawingBuffer: true }}
 				>
-					<ambientLight intensity={1.2} />
-					<directionalLight position={[1, 1, 1]} intensity={1.5} />
+					<ambientLight intensity={0.82} />
+					<hemisphereLight args={["#f8fbff", "#4d7fd8", 1.4]} />
+					<directionalLight
+						castShadow
+						position={[2.2, 3.2, 2.4]}
+						intensity={2.1}
+						shadow-mapSize={[1024, 1024]}
+					/>
+					<pointLight
+						position={[0, 1.15, -0.72]}
+						color="#93c5fd"
+						intensity={2.2}
+					/>
+					<StageRoom />
 					<VRMAvatar
 						emotionState={emotionState}
 						bodyState={bodyState}
@@ -1270,7 +1419,7 @@ export default function AvatarCanvas({
 					<div className="flex items-center gap-2 text-foreground text-sm">
 						<LoaderCircleIcon
 							className={cn(
-								"size-4 text-orange-600",
+								"size-4 text-blue-700",
 								!reducedMotion && "animate-spin",
 							)}
 						/>

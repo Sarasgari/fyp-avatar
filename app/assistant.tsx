@@ -9,11 +9,11 @@ import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import {
 	AudioLinesIcon,
 	BotIcon,
+	BrainIcon,
 	EyeOffIcon,
 	LoaderCircleIcon,
 	type LucideIcon,
 	ShieldCheckIcon,
-	SparklesIcon,
 	TriangleAlertIcon,
 	VolumeXIcon,
 } from "lucide-react";
@@ -79,11 +79,11 @@ const bodyLabels: Record<BodyState, string> = {
 
 const statusPillToneClasses: Record<StatusPillTone, string> = {
 	default:
-		"border-white/55 bg-white/58 text-foreground shadow-sm backdrop-blur-xl",
+		"border-white/65 bg-white/58 text-sky-950 shadow-sm backdrop-blur-xl",
 	success:
-		"border-lime-200/80 bg-lime-100/90 text-lime-950 shadow-sm backdrop-blur-xl",
+		"border-blue-200/85 bg-blue-50/92 text-blue-950 shadow-sm backdrop-blur-xl",
 	warning:
-		"border-amber-200/90 bg-amber-100/90 text-amber-950 shadow-sm backdrop-blur-xl",
+		"border-red-200/90 bg-red-50/92 text-red-950 shadow-sm backdrop-blur-xl",
 };
 
 const getBrowserDefaultPreferences = (): UserPreferences => ({
@@ -216,11 +216,11 @@ const AvatarStageHidden = ({ compact }: { compact: boolean }) => {
 	return (
 		<div
 			className={cn(
-				"flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/60 bg-[linear-gradient(160deg,rgba(255,244,214,0.9),rgba(255,255,255,0.72))] px-6 py-8 text-center shadow-sm",
+				"flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/70 bg-[linear-gradient(160deg,rgba(230,247,255,0.92),rgba(255,255,255,0.72))] px-6 py-8 text-center shadow-sm",
 				compact && "min-h-[15rem] px-5 py-6",
 			)}
 		>
-			<div className="flex size-12 items-center justify-center rounded-full border border-orange-200/80 bg-white/80 text-foreground shadow-sm">
+			<div className="flex size-12 items-center justify-center rounded-full border border-blue-200/80 bg-white/80 text-foreground shadow-sm">
 				<EyeOffIcon className="size-5" />
 			</div>
 			<h3 className="mt-4 font-medium text-base">Avatar hidden</h3>
@@ -352,53 +352,38 @@ export const Assistant = () => {
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
-			<div className="relative h-screen overflow-hidden bg-sky-100 text-foreground">
+			<div className="relative min-h-screen overflow-y-auto bg-sky-100 text-foreground lg:h-screen lg:overflow-hidden">
 				<AppScene avatarState={sceneAvatarState} />
-				<div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(239,250,255,0.58)_0%,rgba(239,250,255,0.32)_42%,rgba(239,250,255,0.02)_100%)]" />
-				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(240,253,244,0.88),rgba(240,253,244,0))]" />
+				<div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(210,239,255,0.68)_0%,rgba(125,199,246,0.16)_48%,rgba(125,199,246,0)_100%)]" />
+				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-[linear-gradient(0deg,rgba(219,238,255,0.82),rgba(219,238,255,0))]" />
 
 				<div
 					className={cn(
-						"relative mx-auto flex h-full w-full max-w-[86rem] flex-col gap-4 px-4 py-4",
+						"relative mx-auto flex min-h-screen w-full max-w-[92rem] flex-col gap-3 px-4 py-4 lg:h-full lg:min-h-0",
 						compactChat && "gap-3 px-3.5 py-3.5",
 					)}
 				>
 					<header
 						className={cn(
-							"rounded-[26px] border border-white/70 bg-white/68 px-5 py-3 shadow-[0_18px_60px_-32px_rgba(15,78,99,0.45)] backdrop-blur-xl sm:px-6",
-							compactChat && "px-4 py-4 sm:px-5",
+							"flex shrink-0 flex-col gap-3 rounded-[30px] border border-white/75 bg-sky-50/64 px-4 py-3 shadow-[0_18px_60px_-32px_rgba(17,82,153,0.48)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between lg:rounded-full",
+							compactChat && "rounded-[24px] px-4 py-3",
 						)}
 					>
-						<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-							<div className="min-w-0">
-								<div className="inline-flex items-center gap-2 rounded-full border border-orange-200/80 bg-orange-50/80 px-3 py-1 text-muted-foreground text-xs shadow-sm">
-									<BotIcon className="size-3.5" />
-									Avatar assistant
-								</div>
-								<h1 className="mt-2 max-w-3xl font-semibold text-2xl text-slate-950 tracking-tight text-balance sm:text-3xl">
-									Your expressive AI companion in a clean 3D world.
-								</h1>
-								<p className="mt-1 max-w-2xl text-slate-700 text-sm leading-6">
-									Chat, listen, and watch the avatar react with mood, posture,
-									and voice cues.
-								</p>
+						<div className="flex min-w-0 items-center gap-3">
+							<div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/75 bg-white/80 shadow-sm">
+								<BotIcon className="size-5 text-blue-700" />
 							</div>
-
-							<div className="flex flex-wrap items-center gap-2 lg:justify-end">
-								<PreferencesDialog
-									onChange={setPreferences}
-									onReset={() => setPreferences(getBrowserDefaultPreferences())}
-									preferences={preferences}
-								/>
-								<AccountControls
-									isLoading={isAuthLoading}
-									session={authSession}
-									onSessionChange={setAuthSession}
-								/>
+							<div className="min-w-0">
+								<h1 className="truncate font-semibold text-blue-950 text-lg tracking-tight">
+									Avatar Assistant
+								</h1>
+								<p className="truncate text-blue-900/70 text-xs">
+									Clean 3D room, live voice, saved chat
+								</p>
 							</div>
 						</div>
 
-						<div className="mt-3 flex flex-wrap gap-2">
+						<div className="flex min-w-0 flex-wrap gap-2 lg:justify-center">
 							<StatusPill
 								icon={avatarStatusModel.icon}
 								label="Avatar"
@@ -413,7 +398,7 @@ export const Assistant = () => {
 								value={voiceStatusModel.value}
 							/>
 							<StatusPill
-								icon={SparklesIcon}
+								icon={BrainIcon}
 								label="Mood"
 								value={emotionLabels[emotionState]}
 							/>
@@ -424,49 +409,34 @@ export const Assistant = () => {
 								value={storageStatusModel.value}
 							/>
 						</div>
+
+						<div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+							<PreferencesDialog
+								onChange={setPreferences}
+								onReset={() => setPreferences(getBrowserDefaultPreferences())}
+								preferences={preferences}
+							/>
+							<AccountControls
+								isLoading={isAuthLoading}
+								session={authSession}
+								onSessionChange={setAuthSession}
+							/>
+						</div>
 					</header>
 
 					<div
 						className={cn(
-							"grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(360px,0.92fr)_minmax(0,1.08fr)]",
+							"grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,25rem)]",
 							compactChat && "gap-3",
 						)}
 					>
 						<section
 							className={cn(
-								"flex min-h-[22rem] flex-col rounded-[26px] border border-white/60 bg-white/38 p-4 shadow-[0_22px_70px_-36px_rgba(15,78,99,0.45)] backdrop-blur-xl sm:p-5",
-								compactChat && "p-3.5 sm:p-4",
+								"relative flex min-h-[28rem] flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/28 p-3 shadow-[0_22px_70px_-36px_rgba(15,78,99,0.42)] backdrop-blur-xl sm:p-4",
+								compactChat && "p-3",
 							)}
 						>
-							<div className="flex items-start justify-between gap-3">
-								<div>
-									<h2 className="font-medium text-slate-950 text-base">
-										Avatar stage
-									</h2>
-									<p className="mt-1 text-slate-700 text-sm leading-6">
-										Live facial mood, posture, and speech cues stay in sync.
-									</p>
-								</div>
-								<Button
-									type="button"
-									variant="secondary"
-									size="sm"
-									className="rounded-full bg-white/72 shadow-sm hover:bg-white/88"
-									disabled={
-										!preferences.voiceEnabled ||
-										(speechState === "silent" && bodyState === "idleDance")
-									}
-									onClick={() => setStopSpeechRequest((current) => current + 1)}
-								>
-									{!preferences.voiceEnabled
-										? "Voice muted"
-										: speechState === "talking"
-											? "Stop voice"
-											: "Voice idle"}
-								</Button>
-							</div>
-
-							<div className="mt-4 h-[22rem] min-h-0 md:h-auto md:flex-1">
+							<div className="min-h-0 flex-1">
 								{preferences.avatarVisible ? (
 									<AvatarCanvas
 										key={avatarRuntimeKey}
@@ -481,33 +451,39 @@ export const Assistant = () => {
 								)}
 							</div>
 
-							<div className="mt-4 grid gap-2 sm:grid-cols-2">
-								<div className="rounded-2xl border border-white/55 bg-white/86 px-4 py-3 backdrop-blur">
-									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
-										Posture
-									</p>
-									<p className="mt-1 font-medium text-sm">
+							<div className="absolute right-5 bottom-5 left-5 z-10 flex flex-wrap gap-2">
+								<div className="rounded-full border border-white/70 bg-white/76 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
+									<span className="text-blue-900/58">Posture</span>{" "}
+									<span className="font-medium text-blue-950">
 										{bodyLabels[bodyState]}
-									</p>
+									</span>
 								</div>
-								<div className="rounded-2xl border border-white/55 bg-white/86 px-4 py-3 backdrop-blur">
-									<p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
-										Voice flow
-									</p>
-									<p className="mt-1 font-medium text-sm">
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									className="h-auto rounded-full border border-white/70 bg-white/76 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl hover:bg-white/90"
+									disabled={
+										!preferences.voiceEnabled ||
+										(speechState === "silent" && bodyState === "idleDance")
+									}
+									onClick={() => setStopSpeechRequest((current) => current + 1)}
+								>
+									<span className="text-blue-900/58">Voice</span>{" "}
+									<span className="font-medium text-blue-950">
 										{!preferences.voiceEnabled
-											? "Muted in settings."
+											? "Muted"
 											: speechState === "talking"
-												? "Audio is playing now."
+												? "Stop"
 												: bodyState === "thinking"
-													? "Voice will start after the reply arrives."
-													: "Waiting for the next turn."}
-									</p>
-								</div>
+													? "Queued"
+													: "Quiet"}
+									</span>
+								</Button>
 							</div>
 						</section>
 
-						<section className="min-h-0 overflow-hidden rounded-[26px] border border-white/65 bg-white/72 shadow-[0_22px_70px_-34px_rgba(15,78,99,0.42)] backdrop-blur-xl">
+						<section className="min-h-[32rem] overflow-hidden rounded-[30px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
 							<PersistentThread
 								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
 								compact={compactChat}
