@@ -26,6 +26,7 @@ type VoiceControllerProps = {
 	onBodyStateChange?: (state: BodyState) => void;
 	onSpeechStateChange?: (state: SpeechState) => void;
 	stopSpeechRequest?: number;
+	voiceEnabled?: boolean;
 };
 
 type AssistantContentPartLike = {
@@ -139,6 +140,7 @@ export const ThreadVoiceController = ({
 	onBodyStateChange,
 	onSpeechStateChange,
 	stopSpeechRequest = 0,
+	voiceEnabled = true,
 }: VoiceControllerProps) => {
 	const isRunning = useThread((thread) => thread.isRunning);
 	const messages = useThread((thread) => thread.messages);
@@ -235,6 +237,12 @@ export const ThreadVoiceController = ({
 			return;
 		}
 
+		if (!voiceEnabled) {
+			setBodyState(isRunning ? "thinking" : session.detectedBodyState);
+			setSpeechState("silent");
+			return;
+		}
+
 		// Thinking covers the streamed-text phase before we have playable audio.
 		if (
 			session.hasStartedPlayback &&
@@ -324,6 +332,11 @@ export const ThreadVoiceController = ({
 
 	const tryPlayNext = () => {
 		const session = sessionRef.current;
+
+		if (!voiceEnabled) {
+			finalizeIfDone();
+			return;
+		}
 
 		if (session.isPlaying) return;
 
@@ -520,6 +533,12 @@ export const ThreadVoiceController = ({
 			return;
 		}
 
+		if (!voiceEnabled) {
+			session.buffer = "";
+			finalizeIfDone();
+			return;
+		}
+
 		const { chunks, remaining } = extractSpeakableChunks({
 			buffer: session.buffer,
 			final,
@@ -690,6 +709,29 @@ export const ThreadVoiceController = ({
 		handledStopRequestRef.current = stopSpeechRequest;
 		stopSpeechForCurrentRun();
 	}, [stopSpeechRequest]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Voice preference changes should stop live playback without rebuilding the streaming session helpers.
+	useEffect(() => {
+		if (voiceEnabled) {
+			return;
+		}
+
+		const session = sessionRef.current;
+		stopCurrentAudio();
+		clearQueuedAudio();
+		session.buffer = "";
+		session.hasStartedPlayback = false;
+		session.pendingTtsCount = 0;
+		session.scheduledTranscript = "";
+		useVoiceTranscriptStore
+			.getState()
+			.endMessage(session.currentAssistantMessageId);
+		syncCharacterState();
+
+		if (!isRunning) {
+			finalizeIfDone();
+		}
+	}, [voiceEnabled, isRunning]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Cleanup should run once on unmount while operating on the current refs-backed audio session.
 	useEffect(() => {

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { ExportedMessageRepository } from "@assistant-ui/core";
 import {
 	createPersistedThreadSnapshot,
 	hasPersistedMessages,
@@ -23,23 +22,25 @@ export const runThreadPersistenceTests = async () => {
 		() => {
 			const rawSnapshot = serializePersistedThreadSnapshot(
 				{
-					...ExportedMessageRepository.fromArray([
+					headId: "assistant-1",
+					messages: [
 						{
-							id: "user-1",
-							role: "user",
-							content: "Hello",
-						},
-						{
-							id: "assistant-1",
-							role: "assistant",
-							content: "Hi there",
-							status: {
-								type: "complete",
-								reason: "stop",
+							parentId: null,
+							message: {
+								id: "user-1",
+								role: "user",
+								parts: [{ type: "text", text: "Hello" }],
 							},
 						},
-					]),
-					headId: "assistant-1",
+						{
+							parentId: "user-1",
+							message: {
+								id: "assistant-1",
+								role: "assistant",
+								parts: [{ type: "text", text: "Hi there" }],
+							},
+						},
+					],
 				},
 				new Date("2026-04-28T12:00:00.000Z"),
 			);
@@ -77,8 +78,8 @@ export const runThreadPersistenceTests = async () => {
 					version: 1,
 					savedAt: "2026-04-28T12:00:00.000Z",
 					snapshot: {
-						headId: null,
-						messages: [{ parentId: null, message: { role: "user" } }],
+						headId: 42,
+						messages: [],
 					},
 				}),
 			),

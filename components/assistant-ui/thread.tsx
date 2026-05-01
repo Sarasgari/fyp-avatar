@@ -8,6 +8,7 @@ import {
 	MessagePrimitive,
 	SuggestionPrimitive,
 	ThreadPrimitive,
+	useThread,
 } from "@assistant-ui/react";
 import {
 	ArrowDownIcon,
@@ -17,9 +18,12 @@ import {
 	ChevronRightIcon,
 	CopyIcon,
 	DownloadIcon,
+	LoaderCircleIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
 	RefreshCwIcon,
+	ShieldCheckIcon,
+	SparklesIcon,
 	SquareIcon,
 	Trash2Icon,
 } from "lucide-react";
@@ -43,8 +47,12 @@ export type ThreadProps = {
 	onBodyStateChange?: (state: BodyState) => void;
 	onSpeechStateChange?: (state: SpeechState) => void;
 	stopSpeechRequest?: number;
+	voiceEnabled?: boolean;
+	reducedMotion?: boolean;
+	compact?: boolean;
 	isPersistenceReady?: boolean;
 	hasSavedConversation?: boolean;
+	persistenceScope?: "guest" | "user";
 	canClearConversation?: boolean;
 	onClearConversation?: () => void;
 };
@@ -55,16 +63,29 @@ export const Thread: FC<ThreadProps> = ({
 	onBodyStateChange,
 	onSpeechStateChange,
 	stopSpeechRequest,
+	voiceEnabled = true,
+	reducedMotion = false,
+	compact = false,
 	isPersistenceReady = true,
 	hasSavedConversation = false,
+	persistenceScope = "guest",
 	canClearConversation = false,
 	onClearConversation,
 }) => {
+	const isThreadRunning = useThread((thread) => thread.isRunning);
+	const hasAnyMessages = useThread((thread) => thread.messages.length > 0);
+	const assistantMessage = () => <AssistantMessage compact={compact} />;
+	const editComposer = () => <EditComposer compact={compact} />;
+	const userMessage = () => <UserMessage compact={compact} />;
+
 	return (
 		<ThreadPrimitive.Root
-			className="aui-root aui-thread-root @container flex h-full min-h-1 flex-col bg-background"
+			className={cn(
+				"aui-root aui-thread-root @container flex h-full min-h-1 flex-col bg-transparent text-[0.92rem]",
+				compact && "text-[0.88rem]",
+			)}
 			style={{
-				["--thread-max-width" as string]: "80rem",
+				["--thread-max-width" as string]: "100%",
 			}}
 		>
 			<ThreadVoiceController
@@ -72,31 +93,58 @@ export const Thread: FC<ThreadProps> = ({
 				onBodyStateChange={onBodyStateChange}
 				onSpeechStateChange={onSpeechStateChange}
 				stopSpeechRequest={stopSpeechRequest}
+				voiceEnabled={voiceEnabled}
 			/>
 			<ThreadToolbar
 				isPersistenceReady={isPersistenceReady}
 				hasSavedConversation={hasSavedConversation}
+				persistenceScope={persistenceScope}
 				canClearConversation={canClearConversation}
+				hasAnyMessages={hasAnyMessages}
+				isThreadRunning={isThreadRunning}
 				onClearConversation={onClearConversation}
+				compact={compact}
 			/>
 			<ThreadPrimitive.Viewport
 				turnAnchor="top"
-				className="aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2 pt-1 pb-2"
+				className={cn(
+					"aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2.5 pt-1 pb-2",
+					compact && "px-2.5 pt-0.5 pb-1.5",
+				)}
 			>
+				<AuiIf
+					condition={(s) =>
+						isPersistenceReady && !s.thread.isEmpty && s.thread.isRunning
+					}
+				>
+					<ThreadRunNotice
+						reducedMotion={reducedMotion}
+						voiceEnabled={voiceEnabled}
+					/>
+				</AuiIf>
 				<AuiIf condition={(s) => isPersistenceReady && s.thread.isEmpty}>
-					<ThreadWelcome />
+					<ThreadWelcome compact={compact} reducedMotion={reducedMotion} />
 				</AuiIf>
 				<ThreadPrimitive.Messages
 					components={{
-						UserMessage,
-						EditComposer,
-						AssistantMessage,
+						UserMessage: userMessage,
+						EditComposer: editComposer,
+						AssistantMessage: assistantMessage,
 					}}
 				/>
 
-				<ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible pt-4 pb-4 bg-background">
+				<ThreadPrimitive.ViewportFooter
+					className={cn(
+						"aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) shrink-0 flex-col gap-2 overflow-visible bg-[linear-gradient(180deg,rgba(239,248,255,0),rgba(239,248,255,0.92)_24%)] pt-4 pb-3",
+						compact && "gap-1.5 pt-3 pb-3",
+					)}
+				>
 					<ThreadScrollToBottom />
-					<Composer onUserSend={onUserSend} />
+					<Composer
+						compact={compact}
+						onUserSend={onUserSend}
+						reducedMotion={reducedMotion}
+					/>
 				</ThreadPrimitive.ViewportFooter>
 			</ThreadPrimitive.Viewport>
 		</ThreadPrimitive.Root>
@@ -106,36 +154,116 @@ export const Thread: FC<ThreadProps> = ({
 type ThreadToolbarProps = {
 	isPersistenceReady: boolean;
 	hasSavedConversation: boolean;
+	persistenceScope: "guest" | "user";
 	canClearConversation: boolean;
+	hasAnyMessages: boolean;
+	isThreadRunning: boolean;
 	onClearConversation?: () => void;
+	compact?: boolean;
 };
 
 const ThreadToolbar: FC<ThreadToolbarProps> = ({
 	isPersistenceReady,
 	hasSavedConversation,
+	persistenceScope,
 	canClearConversation,
+	hasAnyMessages,
+	isThreadRunning,
 	onClearConversation,
+	compact = false,
 }) => {
+	const savedCopy =
+		persistenceScope === "user"
+			? "Conversation is saved to your account."
+			: "Conversation is saved for this session.";
+	const unsavedCopy =
+		persistenceScope === "user"
+			? "New conversations are saved to your account until you clear them."
+			: "New conversations are saved for this session until you clear them.";
+	const runCopy = isThreadRunning
+		? "Working on a reply now."
+		: hasAnyMessages
+			? "Ready for the next turn."
+			: "Ready when you are.";
+
 	return (
-		<div className="mx-auto flex w-full max-w-(--thread-max-width) items-center justify-between gap-3 px-2 pt-1 pb-2">
-			<p className="text-muted-foreground text-xs sm:text-sm">
-				{isPersistenceReady
-					? hasSavedConversation
-						? "Conversation is saved on this device."
-						: "New conversations stay on this device until you clear them."
-					: "Restoring your saved conversation..."}
-			</p>
+		<div
+			className={cn(
+				"mx-auto flex w-full max-w-(--thread-max-width) items-start justify-between gap-2.5 px-3.5 pt-3.5 pb-2",
+				compact && "gap-2 pt-1.5 pb-1.5",
+			)}
+		>
+			<div className="min-w-0">
+				<div className="flex min-w-0 flex-wrap gap-2">
+					<ThreadStatusChip
+						icon={isThreadRunning ? LoaderCircleIcon : SparklesIcon}
+						label="Chat"
+						value={runCopy}
+						animate={isThreadRunning}
+					/>
+					<ThreadStatusChip
+						icon={ShieldCheckIcon}
+						label="History"
+						value={
+							isPersistenceReady
+								? hasSavedConversation
+									? "Saved"
+									: "Ready to save"
+								: "Restoring"
+						}
+						tone={hasSavedConversation ? "success" : "default"}
+					/>
+				</div>
+				<p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground leading-5">
+					{isPersistenceReady
+						? hasSavedConversation
+							? savedCopy
+							: unsavedCopy
+						: "Restoring your saved conversation..."}
+				</p>
+			</div>
 			<Button
 				type="button"
 				variant="ghost"
-				size="sm"
-				className="shrink-0"
+				size="icon"
+				className="size-9 shrink-0 rounded-full border-white/70 bg-white/54 text-blue-800/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_8px_0_-5px_rgba(125,198,244,0.48),0_16px_28px_-24px_rgba(17,82,153,0.58)] hover:bg-white/84 hover:text-blue-950"
 				disabled={!canClearConversation}
 				onClick={onClearConversation}
+				aria-label="Clear conversation"
 			>
 				<Trash2Icon className="size-4" />
-				Clear conversation
 			</Button>
+		</div>
+	);
+};
+
+type ThreadStatusChipProps = {
+	icon: typeof SparklesIcon;
+	label: string;
+	value: string;
+	tone?: "default" | "success";
+	animate?: boolean;
+};
+
+const ThreadStatusChip: FC<ThreadStatusChipProps> = ({
+	icon: Icon,
+	label,
+	value,
+	tone = "default",
+	animate = false,
+}) => {
+	return (
+		<div
+			className={cn(
+				"inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm",
+				tone === "success"
+					? "border-blue-200/85 bg-blue-50/88 text-blue-950"
+					: "border-white/70 bg-white/62 text-blue-950 backdrop-blur-xl",
+			)}
+		>
+			<Icon className={cn("size-3.5 shrink-0", animate && "animate-spin")} />
+			<span className="text-muted-foreground">{label}</span>
+			<span className="font-medium">{value}</span>
 		</div>
 	);
 };
@@ -146,7 +274,7 @@ const ThreadScrollToBottom: FC = () => {
 			<TooltipIconButton
 				tooltip="Scroll to bottom"
 				variant="outline"
-				className="aui-thread-scroll-to-bottom absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible dark:bg-background dark:hover:bg-accent"
+				className="aui-thread-scroll-to-bottom absolute -top-11 z-10 size-9 self-center rounded-full bg-white/84 p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_0_-5px_rgba(96,165,250,0.55),0_18px_30px_-22px_rgba(17,82,153,0.62)] disabled:invisible dark:bg-background dark:hover:bg-accent"
 			>
 				<ArrowDownIcon />
 			</TooltipIconButton>
@@ -154,40 +282,129 @@ const ThreadScrollToBottom: FC = () => {
 	);
 };
 
-const ThreadWelcome: FC = () => {
-	return (
-		<div className="aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-4 pt-2 pb-4">
-			<div className="aui-thread-welcome-message">
-				<h1 className="font-semibold text-3xl tracking-tight">Hi there</h1>
-				<p className="mt-1 text-muted-foreground text-lg">Ask me anything.</p>
-			</div>
+type ThreadRunNoticeProps = {
+	reducedMotion?: boolean;
+	voiceEnabled: boolean;
+};
 
-			<div className="mt-4">
-				<ThreadSuggestions />
+const ThreadRunNotice: FC<ThreadRunNoticeProps> = ({
+	reducedMotion = false,
+	voiceEnabled,
+}) => {
+	return (
+		<div className="mx-auto w-full max-w-(--thread-max-width) px-1 pb-2">
+			<div className="inline-flex max-w-full items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/90 px-3 py-1.5 text-blue-950 text-xs shadow-sm">
+				<LoaderCircleIcon
+					className={cn("size-3.5", !reducedMotion && "animate-spin")}
+				/>
+				<span className="font-medium">Generating a reply</span>
+				<span className="truncate text-blue-900/80">
+					{voiceEnabled
+						? "Voice playback will start automatically when the response is ready."
+						: "Voice is muted, so the response will stay text-first."}
+				</span>
 			</div>
 		</div>
 	);
 };
 
-const ThreadSuggestions: FC = () => {
+type ThreadWelcomeProps = {
+	compact?: boolean;
+	reducedMotion?: boolean;
+};
+
+const ThreadWelcome: FC<ThreadWelcomeProps> = ({
+	compact = false,
+	reducedMotion = false,
+}) => {
 	return (
-		<div className="aui-thread-welcome-suggestions grid w-full @md:grid-cols-2 gap-2 pb-4">
+		<div
+			className={cn(
+				"aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-1 pt-2 pb-3",
+				compact && "px-3 pt-2 pb-3",
+			)}
+		>
+			<div
+				className={cn(
+					"aui-thread-welcome-message rounded-[22px] border border-white/70 bg-white/62 px-4 py-3.5 shadow-sm backdrop-blur-xl",
+					compact && "rounded-[20px] px-3.5 py-3.5",
+				)}
+			>
+				<h1
+					className={cn(
+						"font-semibold text-[1.35rem] leading-tight tracking-tight",
+						compact && "text-lg",
+					)}
+				>
+					Hi there
+				</h1>
+				<p className="mt-2 max-w-2xl text-[13px] text-muted-foreground leading-5">
+					Ask me anything, talk through a problem, or rehearse your next idea
+					out loud. The avatar and voice will follow the tone of the reply.
+				</p>
+			</div>
+
+			<div className="mt-3">
+				<ThreadSuggestions compact={compact} reducedMotion={reducedMotion} />
+			</div>
+		</div>
+	);
+};
+
+type ThreadSuggestionsProps = {
+	compact?: boolean;
+	reducedMotion?: boolean;
+};
+
+const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({
+	compact = false,
+	reducedMotion = false,
+}) => {
+	return (
+		<div
+			className={cn(
+				"aui-thread-welcome-suggestions grid w-full gap-2 pb-3",
+				compact && "gap-1.5 pb-2",
+			)}
+		>
 			<ThreadPrimitive.Suggestions
 				components={{
-					Suggestion: ThreadSuggestionItem,
+					Suggestion: () => (
+						<ThreadSuggestionItem
+							compact={compact}
+							reducedMotion={reducedMotion}
+						/>
+					),
 				}}
 			/>
 		</div>
 	);
 };
 
-const ThreadSuggestionItem: FC = () => {
+type ThreadSuggestionItemProps = {
+	compact?: boolean;
+	reducedMotion?: boolean;
+};
+
+const ThreadSuggestionItem: FC<ThreadSuggestionItemProps> = ({
+	compact = false,
+	reducedMotion = false,
+}) => {
 	return (
-		<div className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 @md:nth-[n+3]:block nth-[n+3]:hidden animate-in fill-mode-both duration-200">
+		<div
+			className={cn(
+				"aui-thread-welcome-suggestion-display @md:nth-[n+3]:block nth-[n+3]:hidden",
+				!reducedMotion &&
+					"fade-in slide-in-from-bottom-2 animate-in fill-mode-both duration-200",
+			)}
+		>
 			<SuggestionPrimitive.Trigger send asChild>
 				<Button
 					variant="ghost"
-					className="aui-thread-welcome-suggestion h-auto w-full @md:flex-col flex-wrap items-start justify-start gap-1 rounded-2xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted"
+					className={cn(
+						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border-white/78 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(219,234,254,0.66))] px-3.5 py-2.5 text-left text-[13px] text-blue-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_9px_0_-5px_rgba(96,165,250,0.45),0_18px_34px_-26px_rgba(17,82,153,0.64)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(191,219,254,0.76))] @md:flex-col",
+						compact && "px-3 py-2.5 text-[13px]",
+					)}
 				>
 					<span className="aui-thread-welcome-suggestion-text-1 font-medium">
 						<SuggestionPrimitive.Title />
@@ -203,21 +420,36 @@ const ThreadSuggestionItem: FC = () => {
 
 type ComposerProps = {
 	onUserSend?: () => void;
+	reducedMotion?: boolean;
+	compact?: boolean;
 };
 
-const Composer: FC<ComposerProps> = ({ onUserSend }) => {
+const Composer: FC<ComposerProps> = ({
+	onUserSend,
+	reducedMotion = false,
+	compact = false,
+}) => {
 	return (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-			<ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
+			<ComposerPrimitive.AttachmentDropzone
+				className={cn(
+					"aui-composer-attachment-dropzone flex w-full flex-col rounded-[22px] border border-white/80 bg-white/88 px-1 pt-2 shadow-[0_14px_42px_-28px_rgba(17,82,153,0.42)] outline-none backdrop-blur-xl transition-shadow has-[textarea:focus-visible]:border-blue-400 has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-blue-400/25 data-[dragging=true]:border-blue-400 data-[dragging=true]:border-dashed data-[dragging=true]:bg-blue-50/70",
+					compact && "rounded-[20px] pt-1.5",
+				)}
+			>
 				<ComposerAttachments />
 				<ComposerPrimitive.Input
 					placeholder="Send a message..."
-					className="aui-composer-input mb-1 max-h-32 min-h-14 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+					className={cn(
+						"aui-composer-input mb-1 max-h-28 min-h-14 w-full resize-none bg-transparent px-3.5 pt-2 pb-2.5 text-[13px] leading-5 outline-none placeholder:text-muted-foreground focus-visible:ring-0",
+						compact && "min-h-12 px-3.5 pt-1.5 pb-2.5 text-[13px]",
+					)}
 					rows={1}
 					autoFocus
 					aria-label="Message input"
 				/>
 				<ComposerAction onUserSend={onUserSend} />
+				<ComposerHint compact={compact} reducedMotion={reducedMotion} />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
 	);
@@ -239,7 +471,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
 						type="submit"
 						variant="default"
 						size="icon"
-						className="aui-composer-send size-8 rounded-full"
+						className="aui-composer-send size-9 rounded-full bg-[linear-gradient(180deg,#93c5fd_0%,#3b82f6_52%,#2563eb_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_9px_0_-5px_rgba(29,78,216,0.72),0_20px_36px_-20px_rgba(37,99,235,0.92)] hover:bg-[linear-gradient(180deg,#bfdbfe_0%,#60a5fa_48%,#2563eb_100%)]"
 						aria-label="Send message"
 						onClick={() => onUserSend?.()}
 					>
@@ -253,12 +485,41 @@ const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
 						type="button"
 						variant="default"
 						size="icon"
-						className="aui-composer-cancel size-8 rounded-full"
+						className="aui-composer-cancel size-9 rounded-full bg-[linear-gradient(180deg,#1e3a8a_0%,#172554_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_9px_0_-5px_rgba(15,23,42,0.78),0_18px_34px_-20px_rgba(15,23,42,0.72)]"
 						aria-label="Stop generating"
 					>
 						<SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
 					</Button>
 				</ComposerPrimitive.Cancel>
+			</AuiIf>
+		</div>
+	);
+};
+
+type ComposerHintProps = {
+	reducedMotion?: boolean;
+	compact?: boolean;
+};
+
+const ComposerHint: FC<ComposerHintProps> = ({
+	reducedMotion = false,
+	compact = false,
+}) => {
+	return (
+		<div
+			className={cn(
+				"mx-3 mt-0 mb-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground",
+				compact && "mx-2.5 mb-1.5 gap-2 text-[10px]",
+			)}
+		>
+			<span>Enter to send. Shift + Enter for a new line.</span>
+			<AuiIf condition={(s) => s.thread.isRunning}>
+				<span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+					<LoaderCircleIcon
+						className={cn("size-3", !reducedMotion && "animate-spin")}
+					/>
+					Replying...
+				</span>
 			</AuiIf>
 		</div>
 	);
@@ -274,13 +535,20 @@ const MessageError: FC = () => {
 	);
 };
 
-const AssistantMessage: FC = () => {
+type AssistantMessageProps = {
+	compact?: boolean;
+};
+
+const AssistantMessage: FC<AssistantMessageProps> = ({ compact = false }) => {
 	return (
 		<MessagePrimitive.Root
-			className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-3 duration-150"
+			className={cn(
+				"aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-2 duration-150",
+				compact && "py-2",
+			)}
 			data-role="assistant"
 		>
-			<div className="aui-assistant-message-content wrap-break-word px-2 text-foreground leading-relaxed">
+			<div className="aui-assistant-message-content wrap-break-word rounded-[20px] border border-white/70 bg-white/64 px-3.5 py-2.5 text-[13px] text-blue-950 leading-5 shadow-sm backdrop-blur-xl">
 				<MessagePrimitive.Parts
 					components={{
 						Text: SpeechSyncedMarkdownText,
@@ -347,16 +615,23 @@ const AssistantActionBar: FC = () => {
 	);
 };
 
-const UserMessage: FC = () => {
+type UserMessageProps = {
+	compact?: boolean;
+};
+
+const UserMessage: FC<UserMessageProps> = ({ compact = false }) => {
 	return (
 		<MessagePrimitive.Root
-			className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3 duration-150 [&:where(>*)]:col-start-2"
+			className={cn(
+				"aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(42px,1fr)_auto] content-start gap-y-2 px-1 py-2 duration-150 [&:where(>*)]:col-start-2",
+				compact && "gap-y-1.5 py-2.5",
+			)}
 			data-role="user"
 		>
 			<UserMessageAttachments />
 
 			<div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-				<div className="aui-user-message-content wrap-break-word rounded-2xl bg-muted px-4 py-2.5 text-foreground">
+				<div className="aui-user-message-content wrap-break-word rounded-[18px] bg-blue-600 px-3.5 py-2.5 text-[13px] text-white leading-5 shadow-sm">
 					<MessagePrimitive.Parts />
 				</div>
 				<div className="aui-user-action-bar-wrapper absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 pr-2">
@@ -385,12 +660,29 @@ const UserActionBar: FC = () => {
 	);
 };
 
-const EditComposer: FC = () => {
+type EditComposerProps = {
+	compact?: boolean;
+};
+
+const EditComposer: FC<EditComposerProps> = ({ compact = false }) => {
 	return (
-		<MessagePrimitive.Root className="aui-edit-composer-wrapper mx-auto flex w-full max-w-(--thread-max-width) flex-col px-2 py-3">
-			<ComposerPrimitive.Root className="aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl bg-muted">
+		<MessagePrimitive.Root
+			className={cn(
+				"aui-edit-composer-wrapper mx-auto flex w-full max-w-(--thread-max-width) flex-col px-2 py-3",
+				compact && "py-2",
+			)}
+		>
+			<ComposerPrimitive.Root
+				className={cn(
+					"aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl bg-white/88",
+					compact && "rounded-[20px]",
+				)}
+			>
 				<ComposerPrimitive.Input
-					className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent p-4 text-foreground text-sm outline-none"
+					className={cn(
+						"aui-edit-composer-input min-h-14 w-full resize-none bg-transparent p-4 text-foreground text-sm outline-none",
+						compact && "min-h-12 p-3.5 text-[13px]",
+					)}
 					autoFocus
 				/>
 				<div className="aui-edit-composer-footer mx-3 mb-3 flex items-center gap-2 self-end">

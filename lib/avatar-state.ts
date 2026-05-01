@@ -53,14 +53,6 @@ export const DEFAULT_CHARACTER_STATE: CharacterState = {
 	speechState: "silent",
 };
 
-export const BODY_STATE_ANIMATION_PATHS: Partial<Record<BodyState, string>> = {
-	idleDance: "/animations/idle-dance.vrma",
-	thinking: "/animations/thinking.vrma",
-	wave: "/animations/wave.vrma",
-	celebration: "/animations/celebration.vrma",
-	dance: "/animations/dance.vrma",
-};
-
 export const BODY_STATE_HOLD_MS: Record<BodyState, number> = {
 	idleDance: 0,
 	thinking: 0,
