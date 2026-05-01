@@ -81,8 +81,8 @@ export const Thread: FC<ThreadProps> = ({
 	return (
 		<ThreadPrimitive.Root
 			className={cn(
-				"aui-root aui-thread-root @container flex h-full min-h-1 flex-col bg-transparent",
-				compact && "text-[0.95rem]",
+				"aui-root aui-thread-root @container flex h-full min-h-1 flex-col bg-transparent text-[0.92rem]",
+				compact && "text-[0.88rem]",
 			)}
 			style={{
 				["--thread-max-width" as string]: "100%",
@@ -108,7 +108,7 @@ export const Thread: FC<ThreadProps> = ({
 			<ThreadPrimitive.Viewport
 				turnAnchor="top"
 				className={cn(
-					"aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-3 pt-1 pb-2",
+					"aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2.5 pt-1 pb-2",
 					compact && "px-2.5 pt-0.5 pb-1.5",
 				)}
 			>
@@ -189,7 +189,7 @@ const ThreadToolbar: FC<ThreadToolbarProps> = ({
 	return (
 		<div
 			className={cn(
-				"mx-auto flex w-full max-w-(--thread-max-width) items-start justify-between gap-3 px-4 pt-4 pb-2",
+				"mx-auto flex w-full max-w-(--thread-max-width) items-start justify-between gap-2.5 px-3.5 pt-3.5 pb-2",
 				compact && "gap-2 pt-1.5 pb-1.5",
 			)}
 		>
@@ -214,7 +214,7 @@ const ThreadToolbar: FC<ThreadToolbarProps> = ({
 						tone={hasSavedConversation ? "success" : "default"}
 					/>
 				</div>
-				<p className="mt-2 line-clamp-2 text-muted-foreground text-xs leading-5">
+				<p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground leading-5">
 					{isPersistenceReady
 						? hasSavedConversation
 							? savedCopy
@@ -320,31 +320,31 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({
 	return (
 		<div
 			className={cn(
-				"aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-1 pt-2 pb-4",
+				"aui-thread-welcome-root mx-auto w-full max-w-(--thread-max-width) px-1 pt-2 pb-3",
 				compact && "px-3 pt-2 pb-3",
 			)}
 		>
 			<div
 				className={cn(
-					"aui-thread-welcome-message rounded-[24px] border border-white/70 bg-white/62 px-4 py-4 shadow-sm backdrop-blur-xl",
-					compact && "rounded-[20px] px-4 py-4",
+					"aui-thread-welcome-message rounded-[22px] border border-white/70 bg-white/62 px-4 py-3.5 shadow-sm backdrop-blur-xl",
+					compact && "rounded-[20px] px-3.5 py-3.5",
 				)}
 			>
 				<h1
 					className={cn(
-						"font-semibold text-2xl tracking-tight",
-						compact && "text-xl",
+						"font-semibold text-[1.35rem] leading-tight tracking-tight",
+						compact && "text-lg",
 					)}
 				>
 					Hi there
 				</h1>
-				<p className="mt-2 max-w-2xl text-muted-foreground text-sm leading-6">
+				<p className="mt-2 max-w-2xl text-[13px] text-muted-foreground leading-5">
 					Ask me anything, talk through a problem, or rehearse your next idea
 					out loud. The avatar and voice will follow the tone of the reply.
 				</p>
 			</div>
 
-			<div className="mt-4">
+			<div className="mt-3">
 				<ThreadSuggestions compact={compact} reducedMotion={reducedMotion} />
 			</div>
 		</div>
@@ -363,7 +363,7 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({
 	return (
 		<div
 			className={cn(
-				"aui-thread-welcome-suggestions grid w-full gap-2 pb-4",
+				"aui-thread-welcome-suggestions grid w-full gap-2 pb-3",
 				compact && "gap-1.5 pb-2",
 			)}
 		>
@@ -402,7 +402,7 @@ const ThreadSuggestionItem: FC<ThreadSuggestionItemProps> = ({
 				<Button
 					variant="ghost"
 					className={cn(
-						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border-white/78 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(219,234,254,0.66))] px-4 py-3 text-left text-blue-950 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_9px_0_-5px_rgba(96,165,250,0.45),0_18px_34px_-26px_rgba(17,82,153,0.64)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(191,219,254,0.76))] @md:flex-col",
+						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border-white/78 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(219,234,254,0.66))] px-3.5 py-2.5 text-left text-[13px] text-blue-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_9px_0_-5px_rgba(96,165,250,0.45),0_18px_34px_-26px_rgba(17,82,153,0.64)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(191,219,254,0.76))] @md:flex-col",
 						compact && "px-3 py-2.5 text-[13px]",
 					)}
 				>
@@ -433,7 +433,7 @@ const Composer: FC<ComposerProps> = ({
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
 				className={cn(
-					"aui-composer-attachment-dropzone flex w-full flex-col rounded-[24px] border border-white/80 bg-white/88 px-1 pt-2 shadow-[0_14px_42px_-28px_rgba(17,82,153,0.42)] outline-none backdrop-blur-xl transition-shadow has-[textarea:focus-visible]:border-blue-400 has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-blue-400/25 data-[dragging=true]:border-blue-400 data-[dragging=true]:border-dashed data-[dragging=true]:bg-blue-50/70",
+					"aui-composer-attachment-dropzone flex w-full flex-col rounded-[22px] border border-white/80 bg-white/88 px-1 pt-2 shadow-[0_14px_42px_-28px_rgba(17,82,153,0.42)] outline-none backdrop-blur-xl transition-shadow has-[textarea:focus-visible]:border-blue-400 has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-blue-400/25 data-[dragging=true]:border-blue-400 data-[dragging=true]:border-dashed data-[dragging=true]:bg-blue-50/70",
 					compact && "rounded-[20px] pt-1.5",
 				)}
 			>
@@ -441,7 +441,7 @@ const Composer: FC<ComposerProps> = ({
 				<ComposerPrimitive.Input
 					placeholder="Send a message..."
 					className={cn(
-						"aui-composer-input mb-1 max-h-32 min-h-16 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0",
+						"aui-composer-input mb-1 max-h-28 min-h-14 w-full resize-none bg-transparent px-3.5 pt-2 pb-2.5 text-[13px] leading-5 outline-none placeholder:text-muted-foreground focus-visible:ring-0",
 						compact && "min-h-12 px-3.5 pt-1.5 pb-2.5 text-[13px]",
 					)}
 					rows={1}
@@ -543,12 +543,12 @@ const AssistantMessage: FC<AssistantMessageProps> = ({ compact = false }) => {
 	return (
 		<MessagePrimitive.Root
 			className={cn(
-				"aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-2.5 duration-150",
+				"aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-2 duration-150",
 				compact && "py-2",
 			)}
 			data-role="assistant"
 		>
-			<div className="aui-assistant-message-content wrap-break-word rounded-[22px] border border-white/70 bg-white/64 px-4 py-3 text-blue-950 leading-relaxed shadow-sm backdrop-blur-xl">
+			<div className="aui-assistant-message-content wrap-break-word rounded-[20px] border border-white/70 bg-white/64 px-3.5 py-2.5 text-[13px] text-blue-950 leading-5 shadow-sm backdrop-blur-xl">
 				<MessagePrimitive.Parts
 					components={{
 						Text: SpeechSyncedMarkdownText,
@@ -623,7 +623,7 @@ const UserMessage: FC<UserMessageProps> = ({ compact = false }) => {
 	return (
 		<MessagePrimitive.Root
 			className={cn(
-				"aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(42px,1fr)_auto] content-start gap-y-2 px-1 py-2.5 duration-150 [&:where(>*)]:col-start-2",
+				"aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(42px,1fr)_auto] content-start gap-y-2 px-1 py-2 duration-150 [&:where(>*)]:col-start-2",
 				compact && "gap-y-1.5 py-2.5",
 			)}
 			data-role="user"
@@ -631,7 +631,7 @@ const UserMessage: FC<UserMessageProps> = ({ compact = false }) => {
 			<UserMessageAttachments />
 
 			<div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-				<div className="aui-user-message-content wrap-break-word rounded-[20px] bg-blue-600 px-4 py-2.5 text-white shadow-sm">
+				<div className="aui-user-message-content wrap-break-word rounded-[18px] bg-blue-600 px-3.5 py-2.5 text-[13px] text-white leading-5 shadow-sm">
 					<MessagePrimitive.Parts />
 				</div>
 				<div className="aui-user-action-bar-wrapper absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 pr-2">

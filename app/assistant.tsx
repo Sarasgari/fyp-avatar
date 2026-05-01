@@ -426,7 +426,7 @@ export const Assistant = () => {
 
 					<div
 						className={cn(
-							"grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,25rem)]",
+							"grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,23rem)]",
 							compactChat && "gap-3",
 						)}
 					>
@@ -483,7 +483,7 @@ export const Assistant = () => {
 							</div>
 						</section>
 
-						<section className="min-h-[32rem] overflow-hidden rounded-[30px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
+						<section className="min-h-[30rem] overflow-hidden rounded-[26px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
 							<PersistentThread
 								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
 								compact={compactChat}

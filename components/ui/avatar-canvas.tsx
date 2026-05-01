@@ -1,6 +1,7 @@
 "use client";
 
 import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
+import { ContactShadows } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
 	LoaderCircleIcon,
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 const MODEL_PATH = "/models/viverse_avatar_model_178290.vrm";
 const AVATAR_MODEL_SCALE = 0.62;
-const BASE_POSITION_Y = -0.58;
+const BASE_POSITION_Y = -0.66;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
 const FACE_EXPRESSION_NAMES = [
 	"happy",
@@ -896,15 +897,17 @@ const dampExpressionValue = (
 const RoomBlock = ({
 	color,
 	position,
+	rotation = [0, 0, 0],
 	scale,
 }: {
 	color: string;
 	position: [number, number, number];
+	rotation?: [number, number, number];
 	scale: [number, number, number];
 }) => (
-	<mesh castShadow receiveShadow position={position}>
+	<mesh castShadow receiveShadow position={position} rotation={rotation}>
 		<boxGeometry args={scale} />
-		<meshStandardMaterial color={color} flatShading roughness={0.74} />
+		<meshStandardMaterial color={color} flatShading roughness={0.78} />
 	</mesh>
 );
 
@@ -933,76 +936,104 @@ const RoomCrystal = ({
 
 const StageRoom = () => (
 	<group position={[0, -0.9, -0.08]}>
-		<mesh receiveShadow position={[0, -0.07, -0.12]}>
-			<cylinderGeometry args={[1.45, 1.6, 0.18, 56]} />
-			<meshStandardMaterial color="#dbeafe" roughness={0.82} />
+		<mesh receiveShadow position={[0, -0.12, -0.18]}>
+			<boxGeometry args={[4.25, 0.16, 2.82]} />
+			<meshStandardMaterial color="#bfdcf2" roughness={0.9} />
 		</mesh>
 		<mesh
 			receiveShadow
-			position={[0, 0.04, -0.1]}
+			position={[0, -0.015, -0.04]}
 			rotation={[-Math.PI / 2, 0, 0]}
 		>
-			<circleGeometry args={[1.18, 48]} />
-			<meshStandardMaterial color="#f8fbff" roughness={0.76} />
+			<planeGeometry args={[3.82, 2.46, 4, 3]} />
+			<meshStandardMaterial color="#edf7ff" roughness={0.86} />
 		</mesh>
 
-		<mesh receiveShadow position={[0, 0.7, -1.1]}>
-			<boxGeometry args={[3.7, 2.05, 0.12]} />
-			<meshStandardMaterial color="#a8dcff" roughness={0.78} />
+		{[-0.96, 0, 0.96].map((x) => (
+			<mesh key={`floor-seam-x-${x}`} position={[x, 0.01, -0.04]}>
+				<boxGeometry args={[0.012, 0.012, 2.46]} />
+				<meshStandardMaterial color="#c7e4f8" roughness={0.82} />
+			</mesh>
+		))}
+		{[-0.62, 0.18, 0.98].map((z) => (
+			<mesh key={`floor-seam-z-${z}`} position={[0, 0.012, z]}>
+				<boxGeometry args={[3.82, 0.012, 0.012]} />
+				<meshStandardMaterial color="#c7e4f8" roughness={0.82} />
+			</mesh>
+		))}
+
+		<mesh receiveShadow position={[0, 0.72, -1.28]}>
+			<boxGeometry args={[4.24, 2.22, 0.16]} />
+			<meshStandardMaterial color="#9fd3f2" roughness={0.82} />
 		</mesh>
-		<mesh receiveShadow position={[-1.88, 0.52, -0.3]} rotation={[0, 0.4, 0]}>
-			<boxGeometry args={[0.1, 1.72, 1.82]} />
-			<meshStandardMaterial color="#79c9ff" roughness={0.78} />
+		<mesh receiveShadow position={[-2.08, 0.54, -0.22]} rotation={[0, 0.34, 0]}>
+			<boxGeometry args={[0.14, 1.88, 2.18]} />
+			<meshStandardMaterial color="#76bfe8" roughness={0.84} />
 		</mesh>
-		<mesh receiveShadow position={[1.88, 0.52, -0.3]} rotation={[0, -0.4, 0]}>
-			<boxGeometry args={[0.1, 1.72, 1.82]} />
-			<meshStandardMaterial color="#60a5fa" roughness={0.78} />
+		<mesh receiveShadow position={[2.08, 0.54, -0.22]} rotation={[0, -0.34, 0]}>
+			<boxGeometry args={[0.14, 1.88, 2.18]} />
+			<meshStandardMaterial color="#5ea9e8" roughness={0.84} />
 		</mesh>
 
-		<mesh position={[0, 0.86, -1.18]}>
-			<boxGeometry args={[1.18, 0.66, 0.04]} />
+		<mesh position={[0, 1.0, -1.18]}>
+			<boxGeometry args={[1.18, 0.7, 0.045]} />
 			<meshStandardMaterial
-				color="#eaf7ff"
-				emissive="#60a5fa"
-				emissiveIntensity={0.14}
+				color="#eefaff"
+				emissive="#93c5fd"
+				emissiveIntensity={0.28}
 				roughness={0.46}
 			/>
 		</mesh>
-		<mesh position={[0, 0.86, -1.14]}>
-			<boxGeometry args={[1.32, 0.08, 0.08]} />
+		<mesh castShadow position={[0, 1.0, -1.12]}>
+			<boxGeometry args={[1.36, 0.09, 0.1]} />
 			<meshStandardMaterial color="#2563eb" roughness={0.52} />
 		</mesh>
-		<mesh position={[0, 0.48, -1.14]}>
-			<boxGeometry args={[1.32, 0.08, 0.08]} />
+		<mesh castShadow position={[0, 0.59, -1.12]}>
+			<boxGeometry args={[1.36, 0.09, 0.1]} />
 			<meshStandardMaterial color="#2563eb" roughness={0.52} />
 		</mesh>
-		<mesh position={[-0.66, 0.67, -1.14]}>
-			<boxGeometry args={[0.08, 0.46, 0.08]} />
+		<mesh castShadow position={[-0.68, 0.8, -1.12]}>
+			<boxGeometry args={[0.09, 0.5, 0.1]} />
 			<meshStandardMaterial color="#2563eb" roughness={0.52} />
 		</mesh>
-		<mesh position={[0.66, 0.67, -1.14]}>
-			<boxGeometry args={[0.08, 0.46, 0.08]} />
+		<mesh castShadow position={[0.68, 0.8, -1.12]}>
+			<boxGeometry args={[0.09, 0.5, 0.1]} />
 			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+
+		{[-1.45, 1.45].map((x) => (
+			<mesh key={`wall-panel-${x}`} receiveShadow position={[x, 0.74, -1.18]}>
+				<boxGeometry args={[0.6, 1.28, 0.035]} />
+				<meshStandardMaterial color="#b9e4fb" roughness={0.88} />
+			</mesh>
+		))}
+		<mesh castShadow receiveShadow position={[0, 0.05, -1.15]}>
+			<boxGeometry args={[4.05, 0.12, 0.16]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.76} />
 		</mesh>
 
 		<RoomBlock
 			color="#2563eb"
-			position={[-1.18, 0.05, -0.82]}
+			position={[-1.36, 0.07, -0.86]}
+			rotation={[0, 0.18, 0]}
 			scale={[0.38, 0.28, 0.38]}
 		/>
 		<RoomBlock
 			color="#bfdbfe"
-			position={[-1.48, 0.19, -0.68]}
+			position={[-1.66, 0.23, -0.66]}
+			rotation={[0, -0.24, 0]}
 			scale={[0.32, 0.32, 0.32]}
 		/>
 		<RoomBlock
 			color="#60a5fa"
-			position={[1.2, 0.05, -0.74]}
+			position={[1.28, 0.06, -0.78]}
+			rotation={[0, -0.18, 0]}
 			scale={[0.42, 0.26, 0.36]}
 		/>
 		<RoomBlock
 			color="#1d4ed8"
-			position={[1.52, 0.27, -0.62]}
+			position={[1.58, 0.3, -0.58]}
+			rotation={[0, 0.22, 0]}
 			scale={[0.28, 0.42, 0.28]}
 		/>
 
@@ -1010,16 +1041,28 @@ const StageRoom = () => (
 		<RoomCrystal color="#7dd3fc" position={[1.28, 0.44, -0.42]} scale={0.92} />
 		<RoomCrystal color="#3b82f6" position={[1.62, 0.64, -0.82]} scale={0.76} />
 
-		<mesh castShadow position={[-1.22, 1.22, -0.92]}>
+		<mesh castShadow position={[-1.32, 1.27, -1.02]}>
 			<boxGeometry args={[0.7, 0.06, 0.18]} />
 			<meshStandardMaterial color="#dbeafe" roughness={0.7} />
 		</mesh>
-		<mesh castShadow position={[-1.44, 1.34, -0.92]}>
+		<mesh castShadow position={[-1.54, 1.39, -1.02]}>
 			<boxGeometry args={[0.18, 0.18, 0.18]} />
 			<meshStandardMaterial color="#2563eb" flatShading roughness={0.64} />
 		</mesh>
-		<mesh castShadow position={[-1.08, 1.34, -0.92]} rotation={[0.1, 0.35, 0]}>
+		<mesh castShadow position={[-1.18, 1.39, -1.02]} rotation={[0.1, 0.35, 0]}>
 			<tetrahedronGeometry args={[0.16, 0]} />
+			<meshStandardMaterial color="#f8fbff" flatShading roughness={0.58} />
+		</mesh>
+		<mesh castShadow receiveShadow position={[1.3, 0.16, 0.46]}>
+			<cylinderGeometry args={[0.16, 0.22, 0.18, 24]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.84} />
+		</mesh>
+		<mesh castShadow position={[1.3, 0.36, 0.46]}>
+			<sphereGeometry args={[0.22, 16, 12]} />
+			<meshStandardMaterial color="#60a5fa" roughness={0.72} />
+		</mesh>
+		<mesh castShadow position={[-1.3, 0.18, 0.35]} rotation={[0, 0.42, 0]}>
+			<icosahedronGeometry args={[0.22, 0]} />
 			<meshStandardMaterial color="#f8fbff" flatShading roughness={0.58} />
 		</mesh>
 	</group>
@@ -1388,23 +1431,50 @@ export default function AvatarCanvas({
 			{canRenderAvatar ? (
 				<Canvas
 					shadows
-					camera={{ position: [-0.85, 1.05, 3.6], fov: 27 }}
-					gl={{ preserveDrawingBuffer: true }}
+					camera={{ position: [-0.75, 1.1, 3.45], fov: 28 }}
+					gl={{
+						antialias: true,
+						preserveDrawingBuffer: true,
+						powerPreference: "high-performance",
+					}}
 				>
-					<ambientLight intensity={0.82} />
-					<hemisphereLight args={["#f8fbff", "#4d7fd8", 1.4]} />
+					<color attach="background" args={["#c7e8fb"]} />
+					<ambientLight intensity={0.44} />
+					<hemisphereLight args={["#f8fbff", "#4d7fd8", 1.05]} />
 					<directionalLight
 						castShadow
-						position={[2.2, 3.2, 2.4]}
-						intensity={2.1}
-						shadow-mapSize={[1024, 1024]}
+						position={[2.6, 3.8, 2.15]}
+						intensity={2.45}
+						shadow-bias={-0.0004}
+						shadow-camera-bottom={-2.2}
+						shadow-camera-far={9}
+						shadow-camera-left={-2.8}
+						shadow-camera-right={2.8}
+						shadow-camera-top={2.4}
+						shadow-mapSize={[2048, 2048]}
 					/>
 					<pointLight
-						position={[0, 1.15, -0.72]}
+						position={[0, 1.08, -0.92]}
 						color="#93c5fd"
-						intensity={2.2}
+						intensity={2.65}
+						distance={3.4}
+					/>
+					<pointLight
+						position={[-1.55, 0.82, 0.62]}
+						color="#f8fbff"
+						intensity={0.85}
+						distance={2.4}
 					/>
 					<StageRoom />
+					<ContactShadows
+						blur={2.8}
+						color="#1e3a8a"
+						far={2.8}
+						opacity={0.22}
+						position={[0, -0.91, 0.04]}
+						resolution={1024}
+						scale={3.6}
+					/>
 					<VRMAvatar
 						emotionState={emotionState}
 						bodyState={bodyState}
