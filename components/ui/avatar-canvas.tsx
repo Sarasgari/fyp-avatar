@@ -13,8 +13,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 
-const MODEL_PATH = "/models/AjoMajo.vrm";
-const BASE_POSITION_Y = -0.4;
+const MODEL_PATH = "/models/viverse_avatar_model_178290.vrm";
+const AVATAR_MODEL_SCALE = 0.62;
+const BASE_POSITION_Y = -0.58;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
 const FACE_EXPRESSION_NAMES = [
 	"happy",
@@ -1272,7 +1273,7 @@ function VRMAvatar({
 
 	if (!vrm) return null;
 
-	return <primitive object={vrm.scene} scale={0.95} />;
+	return <primitive object={vrm.scene} scale={AVATAR_MODEL_SCALE} />;
 }
 
 type AvatarCanvasProps = {

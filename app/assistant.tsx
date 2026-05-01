@@ -462,7 +462,7 @@ export const Assistant = () => {
 									type="button"
 									variant="secondary"
 									size="sm"
-									className="h-auto rounded-full border border-white/70 bg-white/76 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl hover:bg-white/90"
+									className="h-auto rounded-full border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(219,234,254,0.78))] px-3 py-1.5 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_7px_0_-5px_rgba(96,165,250,0.56),0_16px_30px_-24px_rgba(17,82,153,0.62)] backdrop-blur-xl hover:bg-[linear-gradient(180deg,rgba(255,255,255,1),rgba(191,219,254,0.82))]"
 									disabled={
 										!preferences.voiceEnabled ||
 										(speechState === "silent" && bodyState === "idleDance")

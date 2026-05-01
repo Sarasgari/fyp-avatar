@@ -226,7 +226,7 @@ const ThreadToolbar: FC<ThreadToolbarProps> = ({
 				type="button"
 				variant="ghost"
 				size="icon"
-				className="size-9 shrink-0 rounded-full bg-white/54 text-blue-800/58 hover:bg-white/84 hover:text-blue-950"
+				className="size-9 shrink-0 rounded-full border-white/70 bg-white/54 text-blue-800/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_8px_0_-5px_rgba(125,198,244,0.48),0_16px_28px_-24px_rgba(17,82,153,0.58)] hover:bg-white/84 hover:text-blue-950"
 				disabled={!canClearConversation}
 				onClick={onClearConversation}
 				aria-label="Clear conversation"
@@ -274,7 +274,7 @@ const ThreadScrollToBottom: FC = () => {
 			<TooltipIconButton
 				tooltip="Scroll to bottom"
 				variant="outline"
-				className="aui-thread-scroll-to-bottom absolute -top-11 z-10 size-9 self-center rounded-full bg-white/84 p-0 shadow-sm disabled:invisible dark:bg-background dark:hover:bg-accent"
+				className="aui-thread-scroll-to-bottom absolute -top-11 z-10 size-9 self-center rounded-full bg-white/84 p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_0_-5px_rgba(96,165,250,0.55),0_18px_30px_-22px_rgba(17,82,153,0.62)] disabled:invisible dark:bg-background dark:hover:bg-accent"
 			>
 				<ArrowDownIcon />
 			</TooltipIconButton>
@@ -402,7 +402,7 @@ const ThreadSuggestionItem: FC<ThreadSuggestionItemProps> = ({
 				<Button
 					variant="ghost"
 					className={cn(
-					"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border border-white/70 bg-white/54 px-4 py-3 text-left text-blue-950 text-sm transition-colors hover:bg-white/84 @md:flex-col",
+						"aui-thread-welcome-suggestion h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border-white/78 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(219,234,254,0.66))] px-4 py-3 text-left text-blue-950 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_9px_0_-5px_rgba(96,165,250,0.45),0_18px_34px_-26px_rgba(17,82,153,0.64)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(191,219,254,0.76))] @md:flex-col",
 						compact && "px-3 py-2.5 text-[13px]",
 					)}
 				>
@@ -471,7 +471,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
 						type="submit"
 						variant="default"
 						size="icon"
-						className="aui-composer-send size-9 rounded-full bg-blue-500 text-white shadow-sm hover:bg-blue-600"
+						className="aui-composer-send size-9 rounded-full bg-[linear-gradient(180deg,#93c5fd_0%,#3b82f6_52%,#2563eb_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_9px_0_-5px_rgba(29,78,216,0.72),0_20px_36px_-20px_rgba(37,99,235,0.92)] hover:bg-[linear-gradient(180deg,#bfdbfe_0%,#60a5fa_48%,#2563eb_100%)]"
 						aria-label="Send message"
 						onClick={() => onUserSend?.()}
 					>
@@ -485,7 +485,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ onUserSend }) => {
 						type="button"
 						variant="default"
 						size="icon"
-						className="aui-composer-cancel size-9 rounded-full bg-blue-950 text-white"
+						className="aui-composer-cancel size-9 rounded-full bg-[linear-gradient(180deg,#1e3a8a_0%,#172554_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_9px_0_-5px_rgba(15,23,42,0.78),0_18px_34px_-20px_rgba(15,23,42,0.72)]"
 						aria-label="Stop generating"
 					>
 						<SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />

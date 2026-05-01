@@ -3,6 +3,7 @@ import {
 	type AuthenticatedUser,
 	type AuthSessionState,
 	getThreadOwnerKeyForIdentity,
+	normalizeDisplayName,
 	normalizeEmail,
 } from "../auth";
 import { resolveSession, type SessionResolution } from "./session";
@@ -327,6 +328,33 @@ export const getValidatedCredentials = (body: unknown) => {
 		value: {
 			email,
 			password,
+		},
+	};
+};
+
+export const getValidatedRegistrationCredentials = (body: unknown) => {
+	const credentials = getValidatedCredentials(body);
+	if (!credentials.ok) {
+		return credentials;
+	}
+
+	const name =
+		typeof (body as { name?: unknown }).name === "string"
+			? normalizeDisplayName((body as { name: string }).name)
+			: "";
+
+	if (name.length < 2 || name.length > 80) {
+		return {
+			ok: false as const,
+			message: "Your name must be between 2 and 80 characters.",
+		};
+	}
+
+	return {
+		ok: true as const,
+		value: {
+			...credentials.value,
+			name,
 		},
 	};
 };

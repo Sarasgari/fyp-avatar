@@ -1,6 +1,7 @@
 export type AuthenticatedUser = {
 	id: string;
 	email: string;
+	name: string;
 	createdAt: string;
 };
 
@@ -25,3 +26,6 @@ export const getThreadOwnerKeyForIdentity = ({
 	userId ? getUserThreadOwnerKey(userId) : getGuestThreadOwnerKey(sessionId);
 
 export const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
+export const normalizeDisplayName = (value: string) =>
+	value.trim().replace(/\s+/g, " ");

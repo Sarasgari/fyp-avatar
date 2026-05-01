@@ -118,3 +118,25 @@
 		background: linear-gradient(125deg, #d9f1ff 0%, #78c6f4 52%, #2f74ef 100%);
 	}
 }
+
+@layer components {
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled) {
+		transform: translateY(0) translateZ(0);
+		will-change: transform, box-shadow;
+	}
+
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):hover {
+		transform: translateY(-2px) translateZ(0);
+	}
+
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):active {
+		transform: translateY(2px) scale(0.98) translateZ(0);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:where([data-slot="button"], [data-slot="tooltip-trigger"]) {
+			transform: none;
+			transition-duration: 1ms;
+		}
+	}
+}
