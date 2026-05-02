@@ -3,9 +3,20 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "Avatar Assistant",
-	description:
-		"An expressive AI chat assistant with voice playback and a 3D avatar.",
+	applicationName: "Mango",
+	title: "Mango",
+	description: "A cute 3D avatar chat companion with voice playback.",
+	icons: {
+		icon: "/logo.svg",
+		shortcut: "/logo.svg",
+		apple: "/logo.svg",
+	},
+	openGraph: {
+		title: "Mango",
+		description: "A cute 3D avatar chat companion with voice playback.",
+		siteName: "Mango",
+		type: "website",
+	},
 };
 
 export default function RootLayout({

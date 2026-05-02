@@ -47,6 +47,7 @@ export async function POST(request: Request) {
 		Response.json({
 			user: null,
 			isAuthenticated: false,
+			isAdmin: false,
 			threadOwnerKey: getGuestThreadOwnerKey(identity.sessionId),
 			requestId,
 		}),

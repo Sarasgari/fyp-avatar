@@ -1,10 +1,15 @@
+import { type AvatarId, DEFAULT_AVATAR_ID, isAvatarId } from "./avatar-catalog";
+
 export const USER_PREFERENCES_STORAGE_KEY = "fyp-avatar:preferences:v1";
+export const USER_AVATAR_SELECTION_STORAGE_KEY =
+	"fyp-avatar:user-avatar-selection:v1";
 
 export type UserPreferences = {
 	voiceEnabled: boolean;
 	avatarVisible: boolean;
 	reducedMotion: boolean;
 	compactChat: boolean;
+	avatarId: AvatarId;
 };
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
@@ -12,6 +17,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
 	avatarVisible: true,
 	reducedMotion: false,
 	compactChat: false,
+	avatarId: DEFAULT_AVATAR_ID,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -42,6 +48,10 @@ export const coerceUserPreferences = (
 			typeof value.compactChat === "boolean"
 				? value.compactChat
 				: defaults.compactChat,
+		avatarId:
+			typeof value.avatarId === "string" && isAvatarId(value.avatarId)
+				? value.avatarId
+				: defaults.avatarId,
 	};
 };
 

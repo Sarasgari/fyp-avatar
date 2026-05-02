@@ -238,6 +238,10 @@ export const PersistentThread = ({
 			previousStorageOwnerKey?.startsWith("guest:") &&
 				storageOwnerKey.startsWith("user:"),
 		);
+		const shouldClearThreadAfterSignOut = Boolean(
+			previousStorageOwnerKey?.startsWith("user:") &&
+				storageOwnerKey.startsWith("guest:"),
+		);
 		const previousStorageKey = previousStorageOwnerKey
 			? getPersistedThreadStorageKey(previousStorageOwnerKey)
 			: null;
@@ -259,6 +263,29 @@ export const PersistentThread = ({
 			const storageKey = getPersistedThreadStorageKey(storageOwnerKey);
 
 			threadRuntime.importExternalState(createEmptyThreadExternalState());
+
+			if (shouldClearThreadAfterSignOut) {
+				removeLocalSnapshot(storageKey);
+
+				try {
+					await deleteThreadSnapshotFromServer();
+				} catch (error) {
+					console.error(
+						"Failed to clear the guest conversation after sign-out.",
+						error,
+					);
+				}
+
+				if (isCancelled) return;
+
+				lastPersistedSnapshotRef.current = null;
+				setHasSavedConversation(false);
+				setIsPersistenceReady(true);
+				isHydratingRef.current = false;
+				previousStorageOwnerKeyRef.current = storageOwnerKey;
+				return;
+			}
+
 			const localSnapshot = parsePersistedThreadSnapshot(
 				window.localStorage.getItem(storageKey),
 			);

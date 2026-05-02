@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mango logo">
+  <rect width="64" height="64" rx="18" fill="#fed766"/>
+  <path fill="#fb923c" d="M16 18c8-8 25-8 34 2 8 10 4 28-8 33-13 5-29-3-32-16-2-8 1-15 6-19Z"/>
+  <path fill="#fef3c7" d="M21 21c6-5 18-5 25 2 6 7 3 20-6 24-9 4-22-2-24-12-1-6 1-11 5-14Z" opacity=".5"/>
+  <path fill="#166534" d="M42 12c7-4 13-2 17 3-7 2-12 5-15 11-2-4-2-9-2-14Z"/>
+  <path fill="#064e3b" d="M44 24c2-5 7-8 13-10" stroke="#064e3b" stroke-width="3" stroke-linecap="round"/>
+  <path fill="#7c2d12" d="M20 45V24h5l7 10 7-10h5v21h-5V32l-5 7h-4l-5-7v13h-5Z"/>
+</svg>

@@ -11,6 +11,7 @@ import {
 	createAuthCookie,
 	createIdentityResponseHeaders,
 	getValidatedCredentials,
+	isAdminUser,
 	resolveRequestIdentity,
 } from "@/lib/server/auth";
 import { validateProductionServerConfig } from "@/lib/server/production-config";
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
 		Response.json({
 			user,
 			isAuthenticated: true,
+			isAdmin: isAdminUser(user),
 			threadOwnerKey: getUserThreadOwnerKey(user.id),
 			requestId,
 		}),

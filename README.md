@@ -1,22 +1,70 @@
 # Avatar Assistant
 
-An expressive Next.js chat app with an animated avatar, streamed assistant replies, and OpenAI-powered text-to-speech.
+Avatar Assistant is an expressive AI companion built with Next.js, React Three Fiber, VRM avatars, account-based chat history, and spoken replies. Users can sign in, choose a 3D avatar, chat with the assistant, hear responses in a cute playful voice, and manage their experience from a dashboard.
 
-## Setup
+The project is designed as a full-stack final-year style web app: it includes authentication, guest limits, saved conversations, password reset, admin visitor tracking, 3D avatar rendering, and production deployment on Vercel.
 
-1. Install dependencies:
+## Demo
+
+Live demo: [https://fyp-avatar.vercel.app](https://fyp-avatar.vercel.app)
+
+Demo flow:
+
+1. Open the live site.
+2. Create an account or continue as a guest.
+3. Pick an avatar after signing in.
+4. Send a message and listen to the avatar response.
+5. Open the Dashboard to change avatars and view account details.
+
+## Features
+
+- 3D VRM avatar stage with expressive idle, thinking, speaking, dancing, waving, and emotion-driven motion.
+- Avatar selection on first sign-in, with multiple character models.
+- AI chat powered by OpenAI through the Vercel-hosted API routes.
+- Voice playback with ElevenLabs support and OpenAI TTS fallback.
+- Cute/playful default voice style for avatar responses.
+- Email/password accounts with signed first-party cookies.
+- Guest message limit to encourage sign-in while protecting API usage.
+- Saved conversation sync for guest and signed-in sessions.
+- Password reset flow with reset codes and optional Resend email delivery.
+- User dashboard with account information, avatar library, and admin visitor analytics.
+- Admin-only visitor panel using configured admin email addresses.
+- Production guardrails: origin allowlisting, request IDs, validation, rate limits, and secure cookie signing.
+
+## Tech Stack
+
+- Next.js 16 and React 19
+- TypeScript
+- Tailwind CSS
+- React Three Fiber and Drei
+- `@pixiv/three-vrm`
+- Assistant UI
+- OpenAI API
+- ElevenLabs TTS
+- Resend email
+- Vercel deployment
+- Optional Upstash Redis for persistent server storage
+
+## Getting Started
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Create a `.env.local` file:
+Create `.env.local`:
 
 ```bash
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ALLOWED_ORIGINS=http://localhost:3000
+SESSION_SIGNING_SECRET=replace-with-a-long-random-secret
+AUTH_SIGNING_SECRET=replace-with-another-long-random-secret
+ADMIN_EMAILS=you@example.com
+GUEST_CHAT_DAILY_LIMIT=5
 ```
 
-3. Start the development server:
+Start the development server:
 
 ```bash
 npm run dev
@@ -24,43 +72,83 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Environment Variables
+
+Required for production:
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Chat and fallback text-to-speech |
+| `ALLOWED_ORIGINS` | Allowed production origin, for example `https://fyp-avatar.vercel.app` |
+| `SESSION_SIGNING_SECRET` | Signs guest session cookies |
+| `AUTH_SIGNING_SECRET` | Signs account auth cookies |
+| `ADMIN_EMAILS` | Comma-separated admin account emails |
+
+Optional:
+
+| Variable | Purpose |
+| --- | --- |
+| `GUEST_CHAT_DAILY_LIMIT` | Guest message allowance per 24 hours |
+| `ELEVENLABS_API_KEY` | Enables ElevenLabs speech |
+| `ELEVENLABS_VOICE_ID` | ElevenLabs voice used by the avatar |
+| `ELEVENLABS_MODEL_ID` | ElevenLabs model, defaults to `eleven_flash_v2_5` |
+| `RESEND_API_KEY` | Sends password reset codes by email |
+| `EMAIL_FROM` | Verified sender address for reset emails |
+| `UPSTASH_REDIS_REST_URL` | Optional persistent Redis backend |
+| `UPSTASH_REDIS_REST_TOKEN` | Optional Redis token |
+| `THREAD_STORE_PREFIX` | Namespace for saved conversations |
+| `USER_STORE_PREFIX` | Namespace for account records |
+| `RATE_LIMIT_PREFIX` | Namespace for rate limits |
+
 ## Scripts
 
 ```bash
 npm run dev
+npm run typecheck
+npm test
+npm run build
 npm run lint
 npm run lint:fix
-npm test
 npm run test:e2e
-npm run typecheck
+```
+
+## Deployment
+
+This app is deployed on Vercel.
+
+Build command:
+
+```bash
 npm run build
 ```
 
-## Production Notes
+Production URL:
 
-- The chat and TTS routes include request validation, request IDs, no-store headers, origin allowlisting, and rate limiting.
-- The APIs now issue signed first-party guest sessions and apply quotas by both session and IP address.
-- Users can create accounts or sign in with email and password, and saved conversations follow the signed-in account across browsers.
-- Saved conversations now sync through the server, with browser storage kept as a fallback cache for both guest sessions and signed-in users.
-- Sign-in and registration flows have their own request throttling, and guest conversation history is migrated into the account on first sign-in or registration.
-- Playwright smoke tests cover guest-to-account migration, cross-browser history restore, sign-out scope reset, and TTS failure resilience.
-- Builds no longer depend on downloading remote Google Fonts.
-- GitHub Actions runs lint, typecheck, tests, build, and Playwright smoke coverage on every pull request.
-- The app now serves a stricter Content Security Policy plus additional browser hardening headers.
-- Avatar motion is driven by the built-in rig and expression system, so the app no longer depends on external `.vrma` animation assets.
-- Set `SESSION_SIGNING_SECRET` in every deployed environment. Without it, production API requests are rejected.
-- Set `AUTH_SIGNING_SECRET` if you want a separate signing key for account cookies. If omitted, account cookies reuse `SESSION_SIGNING_SECRET`.
-- Set `ALLOWED_ORIGINS` in deployed environments to block cross-site POSTs to the chat and TTS APIs. Production routes now reject requests if this allowlist is missing.
-- If `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured, rate limiting, account storage, and saved-thread storage use Upstash Redis REST. Otherwise they fall back to process-local memory.
+[https://fyp-avatar.vercel.app](https://fyp-avatar.vercel.app)
+
+After adding or changing production environment variables, redeploy:
+
+```bash
+npx vercel --prod
+```
+
+## Notes
+
+- Without Upstash Redis, some server-side data can fall back to temporary server memory in production.
+- ElevenLabs currently falls back to OpenAI TTS if ElevenLabs returns an error, such as missing credits or quota.
+- Password reset codes can be displayed during development, but production should use Resend with a verified sender.
+- API keys should never be committed to the repository.
 
 ## Important Files
 
-- `app/api/chat/route.ts`: chat request validation and assistant response generation
-- `app/api/auth/*.ts`: account session, sign-in, sign-out, and registration routes
-- `app/api/thread/route.ts`: session-scoped saved conversation sync
-- `app/api/tts/route.ts`: text-to-speech endpoint
-- `lib/server/api.ts`: shared API guardrails and response helpers
-- `lib/server/auth.ts`: signed account-cookie resolution
-- `lib/server/thread-store.ts`: server-side thread persistence
-- `lib/server/user-store.ts`: user account storage and password verification
-- `components/ui/avatar-canvas.tsx`: VRM avatar rendering, rig-driven motion, and fallbacks
+- `app/assistant.tsx`: main app shell, avatar/chat layout, dashboard switching
+- `app/api/chat/route.ts`: AI chat endpoint
+- `app/api/tts/route.ts`: ElevenLabs/OpenAI speech endpoint
+- `app/api/auth/*`: account, session, login, logout, registration, and password reset routes
+- `app/api/admin/visitors/route.ts`: admin visitor analytics API
+- `components/ui/avatar-canvas.tsx`: VRM rendering and avatar animation
+- `components/avatar/avatar-picker.tsx`: avatar selection UI
+- `components/dashboard/user-dashboard.tsx`: dashboard and admin visitor panel
+- `lib/server/user-store.ts`: user storage and password hashing
+- `lib/server/password-reset-store.ts`: password reset code creation and validation
+- `lib/avatar-catalog.ts`: available avatar definitions

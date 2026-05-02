@@ -24,6 +24,7 @@ export const runPreferencesTests = async () => {
 				avatarVisible: true,
 				reducedMotion: true,
 				compactChat: true,
+				avatarId: "agnes",
 			}),
 		);
 
@@ -32,6 +33,7 @@ export const runPreferencesTests = async () => {
 			avatarVisible: true,
 			reducedMotion: true,
 			compactChat: true,
+			avatarId: "agnes",
 		});
 	});
 
@@ -54,6 +56,7 @@ export const runPreferencesTests = async () => {
 					avatarVisible: false,
 					reducedMotion: false,
 					compactChat: true,
+					avatarId: "vladi",
 				},
 			),
 			{
@@ -61,6 +64,7 @@ export const runPreferencesTests = async () => {
 				avatarVisible: false,
 				reducedMotion: true,
 				compactChat: true,
+				avatarId: "vladi",
 			},
 		);
 	});

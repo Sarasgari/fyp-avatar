@@ -125,11 +125,15 @@
 		will-change: transform, box-shadow;
 	}
 
-	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):hover {
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(
+			:disabled
+		):hover {
 		transform: translateY(-2px) translateZ(0);
 	}
 
-	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):active {
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(
+			:disabled
+		):active {
 		transform: translateY(2px) scale(0.98) translateZ(0);
 	}
 

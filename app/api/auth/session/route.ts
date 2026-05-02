@@ -4,6 +4,7 @@ import {
 	resolveRequestIdentity,
 } from "@/lib/server/auth";
 import { validateProductionServerConfig } from "@/lib/server/production-config";
+import { recordVisitor } from "@/lib/server/visitor-store";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
 			headers: responseHeaders,
 		});
 	}
+
+	recordVisitor({ request, identity });
 
 	return applyResponseHeaders(
 		Response.json({

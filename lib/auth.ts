@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
 export type AuthSessionState = {
 	user: AuthenticatedUser | null;
 	isAuthenticated: boolean;
+	isAdmin: boolean;
 	threadOwnerKey: string;
 };
 

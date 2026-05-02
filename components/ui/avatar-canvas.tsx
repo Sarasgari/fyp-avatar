@@ -14,7 +14,6 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 
-const MODEL_PATH = "/models/viverse_avatar_model_178290.vrm";
 const AVATAR_MODEL_SCALE = 0.62;
 const BASE_POSITION_Y = -0.66;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
@@ -1071,12 +1070,14 @@ const StageRoom = () => (
 function VRMAvatar({
 	emotionState,
 	bodyState,
+	modelPath,
 	reducedMotion,
 	speechState,
 	onStatusChange,
 }: {
 	emotionState: EmotionState;
 	bodyState: BodyState;
+	modelPath: string;
 	reducedMotion: boolean;
 	speechState: SpeechState;
 	onStatusChange: (status: AvatarCanvasStatus) => void;
@@ -1106,7 +1107,7 @@ function VRMAvatar({
 		loader.register((parser) => new VRMLoaderPlugin(parser));
 
 		loader.load(
-			MODEL_PATH,
+			modelPath,
 			(gltf) => {
 				if (disposed) return;
 
@@ -1151,7 +1152,7 @@ function VRMAvatar({
 			disposed = true;
 			bodyRigRef.current = {};
 		};
-	}, [onStatusChange]);
+	}, [modelPath, onStatusChange]);
 
 	useFrame(({ clock }, delta) => {
 		if (!vrm) return;
@@ -1322,6 +1323,7 @@ function VRMAvatar({
 type AvatarCanvasProps = {
 	emotionState: EmotionState;
 	bodyState: BodyState;
+	modelPath: string;
 	speechState: SpeechState;
 	onStatusChange?: (status: AvatarCanvasStatus) => void;
 	reducedMotion?: boolean;
@@ -1372,6 +1374,7 @@ const AvatarFallback = ({
 export default function AvatarCanvas({
 	emotionState,
 	bodyState,
+	modelPath,
 	speechState,
 	onStatusChange,
 	reducedMotion = false,
@@ -1478,6 +1481,7 @@ export default function AvatarCanvas({
 					<VRMAvatar
 						emotionState={emotionState}
 						bodyState={bodyState}
+						modelPath={modelPath}
 						reducedMotion={reducedMotion}
 						speechState={speechState}
 						onStatusChange={setStatus}

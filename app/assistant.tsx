@@ -8,11 +8,10 @@ import {
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import {
 	AudioLinesIcon,
-	BotIcon,
-	BrainIcon,
 	EyeOffIcon,
+	LayoutDashboardIcon,
 	LoaderCircleIcon,
-	type LucideIcon,
+	MessageCircleIcon,
 	ShieldCheckIcon,
 	TriangleAlertIcon,
 	VolumeXIcon,
@@ -20,6 +19,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { PersistentThread } from "@/components/assistant-ui/persistent-thread";
 import { AccountControls } from "@/components/auth/account-controls";
+import { AvatarPickerDialog } from "@/components/avatar/avatar-picker";
+import { SiteLogoMark } from "@/components/brand/site-logo";
+import { UserDashboard } from "@/components/dashboard/user-dashboard";
 import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
 import AppScene from "@/components/scene/app-scene";
 import AvatarCanvas, {
@@ -27,6 +29,12 @@ import AvatarCanvas, {
 } from "@/components/ui/avatar-canvas";
 import { Button } from "@/components/ui/button";
 import type { AuthSessionState } from "@/lib/auth";
+import type { AvatarId } from "@/lib/avatar-catalog";
+import {
+	DEFAULT_AVATAR_ID,
+	getAvatarOption,
+	isAvatarId,
+} from "@/lib/avatar-catalog";
 import {
 	type BodyState,
 	type EmotionState,
@@ -38,6 +46,7 @@ import {
 	DEFAULT_USER_PREFERENCES,
 	parseUserPreferences,
 	serializeUserPreferences,
+	USER_AVATAR_SELECTION_STORAGE_KEY,
 	USER_PREFERENCES_STORAGE_KEY,
 	type UserPreferences,
 } from "@/lib/preferences";
@@ -47,25 +56,7 @@ type AuthSessionResponse = AuthSessionState & {
 	requestId: string;
 };
 
-type StatusPillTone = "default" | "success" | "warning";
-
-type StatusPillProps = {
-	icon: LucideIcon;
-	label: string;
-	tone?: StatusPillTone;
-	value: string;
-	animate?: boolean;
-};
-
-const emotionLabels: Record<EmotionState, string> = {
-	neutral: "Calm",
-	happy: "Warm",
-	sad: "Gentle",
-	anxious: "Careful",
-	angry: "Firm",
-	confused: "Curious",
-	empathetic: "Supportive",
-};
+type ActiveView = "assistant" | "dashboard";
 
 const bodyLabels: Record<BodyState, string> = {
 	idleDance: "Idle groove",
@@ -77,19 +68,41 @@ const bodyLabels: Record<BodyState, string> = {
 	dance: "Dance pose",
 };
 
-const statusPillToneClasses: Record<StatusPillTone, string> = {
-	default:
-		"border-white/65 bg-white/58 text-sky-950 shadow-sm backdrop-blur-xl",
-	success:
-		"border-blue-200/85 bg-blue-50/92 text-blue-950 shadow-sm backdrop-blur-xl",
-	warning:
-		"border-red-200/90 bg-red-50/92 text-red-950 shadow-sm backdrop-blur-xl",
-};
-
 const getBrowserDefaultPreferences = (): UserPreferences => ({
 	...DEFAULT_USER_PREFERENCES,
 	reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
 });
+
+const readAvatarSelections = () => {
+	try {
+		const parsed = JSON.parse(
+			window.localStorage.getItem(USER_AVATAR_SELECTION_STORAGE_KEY) ?? "{}",
+		) as unknown;
+
+		if (!parsed || typeof parsed !== "object") {
+			return {};
+		}
+
+		return Object.fromEntries(
+			Object.entries(parsed as Record<string, unknown>).filter(
+				([, avatarId]) => typeof avatarId === "string" && isAvatarId(avatarId),
+			),
+		) as Record<string, AvatarId>;
+	} catch {
+		return {};
+	}
+};
+
+const writeAvatarSelection = (userId: string, avatarId: AvatarId) => {
+	const selections = readAvatarSelections();
+	window.localStorage.setItem(
+		USER_AVATAR_SELECTION_STORAGE_KEY,
+		JSON.stringify({
+			...selections,
+			[userId]: avatarId,
+		}),
+	);
+};
 
 const getAvatarStatusModel = (
 	status: AvatarCanvasStatus,
@@ -167,51 +180,6 @@ const getVoiceStatusModel = (
 	};
 };
 
-const getStorageStatusModel = (
-	session: AuthSessionState | null,
-	isAuthLoading: boolean,
-) => {
-	if (isAuthLoading) {
-		return {
-			tone: "default" as const,
-			value: "Checking session",
-		};
-	}
-
-	if (session?.isAuthenticated) {
-		return {
-			tone: "success" as const,
-			value: "Account sync",
-		};
-	}
-
-	return {
-		tone: "default" as const,
-		value: "Session-only history",
-	};
-};
-
-const StatusPill = ({
-	icon: Icon,
-	label,
-	tone = "default",
-	value,
-	animate = false,
-}: StatusPillProps) => {
-	return (
-		<div
-			className={cn(
-				"inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5",
-				statusPillToneClasses[tone],
-			)}
-		>
-			<Icon className={cn("size-3.5 shrink-0", animate && "animate-spin")} />
-			<span className="text-muted-foreground text-xs">{label}</span>
-			<span className="truncate font-medium text-xs">{value}</span>
-		</div>
-	);
-};
-
 const AvatarStageHidden = ({ compact }: { compact: boolean }) => {
 	return (
 		<div
@@ -252,6 +220,8 @@ export const Assistant = () => {
 		DEFAULT_USER_PREFERENCES,
 	);
 	const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+	const [activeView, setActiveView] = useState<ActiveView>("assistant");
+	const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 	const previousVoiceEnabledRef = useRef(DEFAULT_USER_PREFERENCES.voiceEnabled);
 
 	useEffect(() => {
@@ -279,6 +249,7 @@ export const Assistant = () => {
 
 				setAuthSession({
 					isAuthenticated: body.isAuthenticated,
+					isAdmin: body.isAdmin,
 					threadOwnerKey: body.threadOwnerKey,
 					user: body.user,
 				});
@@ -328,9 +299,57 @@ export const Assistant = () => {
 		previousVoiceEnabledRef.current = preferences.voiceEnabled;
 	}, [preferences.voiceEnabled]);
 
+	useEffect(() => {
+		if (
+			!hasLoadedPreferences ||
+			!authSession?.isAuthenticated ||
+			!authSession.user
+		) {
+			return;
+		}
+
+		const savedAvatarId = readAvatarSelections()[authSession.user.id];
+		if (savedAvatarId) {
+			setPreferences((current) =>
+				current.avatarId === savedAvatarId
+					? current
+					: {
+							...current,
+							avatarId: savedAvatarId,
+						},
+			);
+			setAvatarPickerOpen(false);
+			return;
+		}
+
+		setAvatarPickerOpen(true);
+	}, [authSession, hasLoadedPreferences]);
+
+	const selectAvatar = (avatarId: AvatarId) => {
+		setPreferences((current) => ({
+			...current,
+			avatarId,
+			avatarVisible: true,
+		}));
+
+		if (authSession?.isAuthenticated && authSession.user) {
+			writeAvatarSelection(authSession.user.id, avatarId);
+		}
+	};
+
+	const confirmAvatarSelection = () => {
+		const avatarId = isAvatarId(preferences.avatarId)
+			? preferences.avatarId
+			: DEFAULT_AVATAR_ID;
+
+		selectAvatar(avatarId);
+		setAvatarPickerOpen(false);
+	};
+
 	const avatarRuntimeKey = preferences.reducedMotion
-		? "reduced-motion"
-		: "full-motion";
+		? `${preferences.avatarId}:reduced-motion`
+		: `${preferences.avatarId}:full-motion`;
+	const selectedAvatar = getAvatarOption(preferences.avatarId);
 
 	const avatarStatusModel = getAvatarStatusModel(
 		avatarStatus,
@@ -347,8 +366,10 @@ export const Assistant = () => {
 		bodyState,
 		preferences.voiceEnabled,
 	);
-	const storageStatusModel = getStorageStatusModel(authSession, isAuthLoading);
 	const compactChat = preferences.compactChat;
+	const showVoiceAction =
+		preferences.voiceEnabled &&
+		(speechState === "talking" || bodyState === "thinking");
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
@@ -365,52 +386,59 @@ export const Assistant = () => {
 				>
 					<header
 						className={cn(
-							"flex shrink-0 flex-col gap-3 rounded-[30px] border border-white/75 bg-sky-50/64 px-4 py-3 shadow-[0_18px_60px_-32px_rgba(17,82,153,0.48)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between lg:rounded-full",
+							"flex shrink-0 flex-col gap-3 rounded-[28px] border border-white/75 bg-white/58 px-4 py-3 shadow-sm backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between",
 							compactChat && "rounded-[24px] px-4 py-3",
 						)}
 					>
 						<div className="flex min-w-0 items-center gap-3">
-							<div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/75 bg-white/80 shadow-sm">
-								<BotIcon className="size-5 text-blue-700" />
-							</div>
+							<SiteLogoMark />
 							<div className="min-w-0">
 								<h1 className="truncate font-semibold text-blue-950 text-lg tracking-tight">
-									Avatar Assistant
+									Mango
 								</h1>
 								<p className="truncate text-blue-900/70 text-xs">
-									Clean 3D room, live voice, saved chat
+									Cute 3D chat companion
 								</p>
 							</div>
 						</div>
 
-						<div className="flex min-w-0 flex-wrap gap-2 lg:justify-center">
-							<StatusPill
-								icon={avatarStatusModel.icon}
-								label="Avatar"
-								tone={avatarStatusModel.tone}
-								value={avatarStatusModel.value}
-								animate={avatarStatus === "loading"}
+						<div className="hidden min-w-0 items-center gap-2 rounded-full border border-white/75 bg-white/68 px-3 py-1.5 text-blue-900/72 text-xs shadow-sm md:flex">
+							<span
+								className={cn(
+									"size-2 rounded-full",
+									avatarStatusModel.tone === "success"
+										? "bg-emerald-500"
+										: avatarStatusModel.tone === "warning"
+											? "bg-rose-400"
+											: "bg-amber-400",
+								)}
 							/>
-							<StatusPill
-								icon={voiceStatusModel.icon}
-								label="Voice"
-								tone={voiceStatusModel.tone}
-								value={voiceStatusModel.value}
-							/>
-							<StatusPill
-								icon={BrainIcon}
-								label="Mood"
-								value={emotionLabels[emotionState]}
-							/>
-							<StatusPill
-								icon={ShieldCheckIcon}
-								label="Storage"
-								tone={storageStatusModel.tone}
-								value={storageStatusModel.value}
-							/>
+							<span className="font-medium text-blue-950">
+								{avatarStatusModel.value}
+							</span>
+							<span className="text-blue-900/35">/</span>
+							<span>{voiceStatusModel.value}</span>
 						</div>
 
 						<div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="rounded-full"
+								onClick={() =>
+									setActiveView((current) =>
+										current === "dashboard" ? "assistant" : "dashboard",
+									)
+								}
+							>
+								{activeView === "dashboard" ? (
+									<MessageCircleIcon className="size-4" />
+								) : (
+									<LayoutDashboardIcon className="size-4" />
+								)}
+								{activeView === "dashboard" ? "Chat" : "Dashboard"}
+							</Button>
 							<PreferencesDialog
 								onChange={setPreferences}
 								onReset={() => setPreferences(getBrowserDefaultPreferences())}
@@ -424,85 +452,104 @@ export const Assistant = () => {
 						</div>
 					</header>
 
-					<div
-						className={cn(
-							"grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,23rem)]",
-							compactChat && "gap-3",
-						)}
-					>
-						<section
+					{activeView === "dashboard" ? (
+						<UserDashboard
+							session={authSession}
+							selectedAvatarId={selectedAvatar.id}
+							onAvatarSelect={selectAvatar}
+						/>
+					) : (
+						<div
 							className={cn(
-								"relative flex min-h-[28rem] flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/28 p-3 shadow-[0_22px_70px_-36px_rgba(15,78,99,0.42)] backdrop-blur-xl sm:p-4",
-								compactChat && "p-3",
+								"grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,23rem)]",
+								compactChat && "gap-3",
 							)}
 						>
-							<div className="min-h-0 flex-1">
-								{preferences.avatarVisible ? (
-									<AvatarCanvas
-										key={avatarRuntimeKey}
-										emotionState={emotionState}
-										bodyState={bodyState}
-										reducedMotion={preferences.reducedMotion}
-										speechState={speechState}
-										onStatusChange={setAvatarStatus}
-									/>
-								) : (
-									<AvatarStageHidden compact={compactChat} />
+							<section
+								className={cn(
+									"relative flex min-h-[28rem] flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/28 p-3 shadow-[0_22px_70px_-36px_rgba(15,78,99,0.42)] backdrop-blur-xl sm:p-4",
+									compactChat && "p-3",
 								)}
-							</div>
-
-							<div className="absolute right-5 bottom-5 left-5 z-10 flex flex-wrap gap-2">
-								<div className="rounded-full border border-white/70 bg-white/76 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
-									<span className="text-blue-900/58">Posture</span>{" "}
-									<span className="font-medium text-blue-950">
-										{bodyLabels[bodyState]}
-									</span>
+							>
+								<div className="min-h-0 flex-1">
+									{preferences.avatarVisible ? (
+										<AvatarCanvas
+											key={avatarRuntimeKey}
+											emotionState={emotionState}
+											bodyState={bodyState}
+											modelPath={selectedAvatar.modelPath}
+											reducedMotion={preferences.reducedMotion}
+											speechState={speechState}
+											onStatusChange={setAvatarStatus}
+										/>
+									) : (
+										<AvatarStageHidden compact={compactChat} />
+									)}
 								</div>
-								<Button
-									type="button"
-									variant="secondary"
-									size="sm"
-									className="h-auto rounded-full border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(219,234,254,0.78))] px-3 py-1.5 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_7px_0_-5px_rgba(96,165,250,0.56),0_16px_30px_-24px_rgba(17,82,153,0.62)] backdrop-blur-xl hover:bg-[linear-gradient(180deg,rgba(255,255,255,1),rgba(191,219,254,0.82))]"
-									disabled={
-										!preferences.voiceEnabled ||
-										(speechState === "silent" && bodyState === "idleDance")
-									}
-									onClick={() => setStopSpeechRequest((current) => current + 1)}
-								>
-									<span className="text-blue-900/58">Voice</span>{" "}
-									<span className="font-medium text-blue-950">
-										{!preferences.voiceEnabled
-											? "Muted"
-											: speechState === "talking"
-												? "Stop"
-												: bodyState === "thinking"
-													? "Queued"
-													: "Quiet"}
-									</span>
-								</Button>
-							</div>
-						</section>
 
-						<section className="min-h-[30rem] overflow-hidden rounded-[26px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
-							<PersistentThread
-								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
-								compact={compactChat}
-								onUserSend={() => {
-									setEmotionState("neutral");
-									setBodyState("thinking");
-									setSpeechState("silent");
-								}}
-								onEmotionStateChange={setEmotionState}
-								onBodyStateChange={setBodyState}
-								onSpeechStateChange={setSpeechState}
-								reducedMotion={preferences.reducedMotion}
-								stopSpeechRequest={stopSpeechRequest}
-								storageOwnerKey={authSession?.threadOwnerKey ?? null}
-								voiceEnabled={preferences.voiceEnabled}
-							/>
-						</section>
-					</div>
+								<div className="absolute right-5 bottom-5 left-5 z-10 flex flex-wrap gap-2">
+									<div className="rounded-full border border-white/70 bg-white/76 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
+										<span className="font-medium text-blue-950">
+											{selectedAvatar.name}
+										</span>{" "}
+										<span className="text-blue-900/45">/</span>{" "}
+										<span className="font-medium text-blue-950">
+											{bodyLabels[bodyState]}
+										</span>
+									</div>
+									{showVoiceAction ? (
+										<Button
+											type="button"
+											variant="secondary"
+											size="sm"
+											className="h-auto rounded-full px-3 py-1.5 text-xs"
+											onClick={() =>
+												setStopSpeechRequest((current) => current + 1)
+											}
+										>
+											{speechState === "talking"
+												? "Stop voice"
+												: "Voice queued"}
+										</Button>
+									) : null}
+								</div>
+							</section>
+
+							<section className="min-h-[30rem] overflow-hidden rounded-[26px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
+								<PersistentThread
+									key={authSession?.threadOwnerKey ?? "thread-pending-session"}
+									compact={compactChat}
+									onUserSend={() => {
+										setEmotionState("neutral");
+										setBodyState("thinking");
+										setSpeechState("silent");
+									}}
+									onEmotionStateChange={setEmotionState}
+									onBodyStateChange={setBodyState}
+									onSpeechStateChange={setSpeechState}
+									reducedMotion={preferences.reducedMotion}
+									stopSpeechRequest={stopSpeechRequest}
+									storageOwnerKey={authSession?.threadOwnerKey ?? null}
+									voiceEnabled={preferences.voiceEnabled}
+								/>
+							</section>
+						</div>
+					)}
 				</div>
+
+				<AvatarPickerDialog
+					open={avatarPickerOpen}
+					required
+					selectedAvatarId={selectedAvatar.id}
+					onSelect={selectAvatar}
+					onOpenChange={(open) => {
+						if (!open) {
+							confirmAvatarSelection();
+							return;
+						}
+						setAvatarPickerOpen(open);
+					}}
+				/>
 			</div>
 		</AssistantRuntimeProvider>
 	);

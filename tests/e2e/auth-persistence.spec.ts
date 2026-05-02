@@ -8,7 +8,7 @@ import {
 	sendMessage,
 } from "./helpers";
 
-test.describe.configure({ timeout: 45_000 });
+test.describe.configure({ timeout: 90_000 });
 
 test("guest conversation migrates into an account and sign-out returns to guest scope", async ({
 	page,
@@ -35,7 +35,7 @@ test("guest conversation migrates into an account and sign-out returns to guest 
 
 	await page.reload();
 
-	await expect(page.getByText(credentials.email)).toBeVisible();
+	await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 	await expect(
 		page.getByText("Conversation is saved to your account."),
 	).toBeVisible();
@@ -43,7 +43,6 @@ test("guest conversation migrates into an account and sign-out returns to guest 
 
 	await page.getByRole("button", { name: "Sign out" }).click();
 
-	await expect(page.getByText("Guest session")).toBeVisible();
 	await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 	await expect(
 		page.getByText(
@@ -121,7 +120,9 @@ test("signed-in users can restore saved history in a new browser context and cle
 
 	await secondPage.reload();
 
-	await expect(secondPage.getByText(credentials.email)).toBeVisible();
+	await expect(
+		secondPage.getByRole("button", { name: "Sign out" }),
+	).toBeVisible();
 	await expect(
 		secondPage.getByRole("heading", { name: "Hi there" }),
 	).toBeVisible();

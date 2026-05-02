@@ -75,6 +75,27 @@ const getAuthCookieMaxAgeSeconds = () => {
 	return Math.floor(parsedValue);
 };
 
+const getAdminEmails = () =>
+	new Set(
+		(process.env.ADMIN_EMAILS ?? "")
+			.split(/[,\n]/)
+			.map((email) => normalizeEmail(email))
+			.filter(Boolean),
+	);
+
+export const isAdminUser = (user: AuthenticatedUser | null) => {
+	if (!user) {
+		return false;
+	}
+
+	const adminEmails = getAdminEmails();
+	if (adminEmails.size === 0) {
+		return process.env.NODE_ENV !== "production";
+	}
+
+	return adminEmails.has(normalizeEmail(user.email));
+};
+
 const parseCookies = (request: Request) => {
 	const cookieHeader = request.headers.get("cookie");
 	if (!cookieHeader) {
@@ -284,6 +305,7 @@ export const resolveRequestIdentity = async (
 		session: {
 			user,
 			isAuthenticated: Boolean(user),
+			isAdmin: isAdminUser(user),
 			threadOwnerKey: getThreadOwnerKeyForIdentity({
 				sessionId: session.sessionId,
 				userId: user?.id,

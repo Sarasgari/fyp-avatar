@@ -226,6 +226,26 @@ const loadMemoryUserByEmail = (email: string) => {
 	return userId ? loadMemoryUserById(userId) : null;
 };
 
+const updateMemoryUserPassword = ({
+	email,
+	password,
+}: {
+	email: string;
+	password: string;
+}) => {
+	const record = loadMemoryUserByEmail(email);
+	if (!record) {
+		return null;
+	}
+
+	const updatedRecord = {
+		...record,
+		passwordHash: hashPassword(password),
+	};
+	USER_STORE_BY_ID.set(record.id, updatedRecord);
+	return toAuthenticatedUser(updatedRecord);
+};
+
 const loadFileUserById = async (userId: string) => {
 	return withFileUserStoreLock(async () => {
 		const state = await readFileUserStore();
@@ -238,6 +258,29 @@ const loadFileUserByEmail = async (email: string) => {
 		const state = await readFileUserStore();
 		const userId = state.userIdsByEmail[normalizeEmail(email)];
 		return userId ? (state.usersById[userId] ?? null) : null;
+	});
+};
+
+const updateFileUserPassword = async ({
+	email,
+	password,
+}: {
+	email: string;
+	password: string;
+}) => {
+	return withFileUserStoreLock(async () => {
+		const state = await readFileUserStore();
+		const userId = state.userIdsByEmail[normalizeEmail(email)];
+		if (!userId || !state.usersById[userId]) {
+			return null;
+		}
+
+		state.usersById[userId] = {
+			...state.usersById[userId],
+			passwordHash: hashPassword(password),
+		};
+		await writeFileUserStore(state);
+		return toAuthenticatedUser(state.usersById[userId]);
 	});
 };
 
@@ -384,6 +427,37 @@ const createUpstashUser = async ({
 	return toAuthenticatedUser(record);
 };
 
+const updateUpstashUserPassword = async ({
+	email,
+	password,
+}: {
+	email: string;
+	password: string;
+}) => {
+	const normalizedEmail = normalizeEmail(email);
+	const record = await loadUpstashUserByEmail(normalizedEmail);
+	if (!record) {
+		return null;
+	}
+
+	const updatedRecord: StoredUserRecord = {
+		...record,
+		passwordHash: hashPassword(password),
+	};
+	const pipelineResult = await runUpstashPipeline([
+		["SET", getUserRecordKey(record.id), JSON.stringify(updatedRecord)],
+	]);
+	if (!pipelineResult) {
+		return updateMemoryUserPassword({ email: normalizedEmail, password });
+	}
+
+	if (pipelineResult[0]?.error) {
+		throw new Error(pipelineResult[0].error);
+	}
+
+	return toAuthenticatedUser(updatedRecord);
+};
+
 export const createUser = async ({
 	email,
 	name,
@@ -424,6 +498,22 @@ export const getUserById = async (userId: string) => {
 	}
 };
 
+export const getUserByEmail = async (email: string) => {
+	try {
+		if (hasFileUserStore()) {
+			return toAuthenticatedUser(await loadFileUserByEmail(email));
+		}
+
+		return toAuthenticatedUser(await loadUpstashUserByEmail(email));
+	} catch (error) {
+		warnOnce(
+			"Shared user storage backend failed. Falling back to in-memory user storage.",
+			error,
+		);
+		return toAuthenticatedUser(loadMemoryUserByEmail(email));
+	}
+};
+
 export const authenticateUser = async ({
 	email,
 	password,
@@ -452,6 +542,28 @@ export const authenticateUser = async ({
 		return record && verifyPassword(password, record.passwordHash)
 			? toAuthenticatedUser(record)
 			: null;
+	}
+};
+
+export const updateUserPassword = async ({
+	email,
+	password,
+}: {
+	email: string;
+	password: string;
+}) => {
+	try {
+		if (hasFileUserStore()) {
+			return await updateFileUserPassword({ email, password });
+		}
+
+		return await updateUpstashUserPassword({ email, password });
+	} catch (error) {
+		warnOnce(
+			"Shared user storage backend failed. Falling back to in-memory user storage.",
+			error,
+		);
+		return updateMemoryUserPassword({ email, password });
 	}
 };
 

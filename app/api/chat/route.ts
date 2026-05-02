@@ -38,6 +38,8 @@ const CHAT_IP_RATE_LIMIT = {
 	limit: 60,
 	windowMs: 10 * 60 * 1_000,
 } as const;
+const DEFAULT_GUEST_CHAT_DAILY_LIMIT = 5;
+const GUEST_CHAT_DAILY_WINDOW_MS = 24 * 60 * 60 * 1_000;
 const E2E_CHAT_MOCK_ENABLED = process.env.E2E_CHAT_MOCK === "1";
 const MAX_CONTEXT_MESSAGES = 24;
 const MAX_CONTEXT_CHARACTERS = 12_000;
@@ -329,6 +331,18 @@ const createE2eStructuredResponse = (
 	reply: `E2E reply: ${latestUserMessage}`.trim(),
 });
 
+const getGuestChatDailyLimit = () => {
+	const rawLimit = process.env.GUEST_CHAT_DAILY_LIMIT?.trim();
+	if (!rawLimit) {
+		return DEFAULT_GUEST_CHAT_DAILY_LIMIT;
+	}
+
+	const parsedLimit = Number(rawLimit);
+	return Number.isFinite(parsedLimit) && parsedLimit >= 0
+		? Math.floor(parsedLimit)
+		: DEFAULT_GUEST_CHAT_DAILY_LIMIT;
+};
+
 export async function POST(req: Request) {
 	const requestId = crypto.randomUUID();
 	const configCheck = validateProductionServerConfig({
@@ -406,6 +420,35 @@ export async function POST(req: Request) {
 		});
 	}
 
+	let effectiveRateLimit = activeRateLimit;
+
+	if (!identity.session.isAuthenticated) {
+		const guestDailyLimit = await consumeRateLimit({
+			key: `chat:guest:daily:${identity.sessionId}`,
+			limit: getGuestChatDailyLimit(),
+			windowMs: GUEST_CHAT_DAILY_WINDOW_MS,
+		});
+		effectiveRateLimit = pickMostConstrainedRateLimit(
+			activeRateLimit,
+			guestDailyLimit,
+		);
+
+		if (!guestDailyLimit.allowed) {
+			return jsonError(
+				429,
+				"Guest message limit reached. Please sign in to keep chatting.",
+				{
+					requestId,
+					rateLimit: guestDailyLimit,
+					headers: new Headers([
+						...responseHeaders.entries(),
+						["Retry-After", String(guestDailyLimit.retryAfterSeconds)],
+					]),
+				},
+			);
+		}
+	}
+
 	const { messages, system } = validation.value;
 	const latestUserMessage = getLatestUserMessageText(messages);
 	let structuredResponse: StructuredChatResponse;
@@ -419,7 +462,7 @@ export async function POST(req: Request) {
 			);
 			return jsonError(500, "Chat is not configured.", {
 				requestId,
-				rateLimit: activeRateLimit,
+				rateLimit: effectiveRateLimit,
 				headers: responseHeaders,
 			});
 		}
@@ -432,7 +475,7 @@ export async function POST(req: Request) {
 			console.error(`[chat:${requestId}] Invalid message payload.`, error);
 			return jsonError(400, "Messages could not be parsed.", {
 				requestId,
-				rateLimit: activeRateLimit,
+				rateLimit: effectiveRateLimit,
 				headers: responseHeaders,
 			});
 		}
@@ -525,7 +568,7 @@ export async function POST(req: Request) {
 
 	return applyResponseHeaders(createUIMessageStreamResponse({ stream }), {
 		requestId,
-		rateLimit: activeRateLimit,
+		rateLimit: effectiveRateLimit,
 		headers: responseHeaders,
 	});
 }

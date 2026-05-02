@@ -4,6 +4,7 @@ import {
 	createUser,
 	getUserById,
 	resetUserStoreStateForTests,
+	updateUserPassword,
 } from "../../lib/server/user-store";
 
 const ORIGINAL_ENV = {
@@ -109,5 +110,36 @@ export const runUserStoreTests = async () => {
 
 		assert.ok(user);
 		assert.deepEqual(await getUserById(user.id), user);
+	});
+
+	await run("updateUserPassword replaces the stored password", async () => {
+		const user = await createUser({
+			email: "sara@example.com",
+			name: "Sara",
+			password: "old-password",
+		});
+
+		assert.ok(user);
+		assert.deepEqual(
+			await updateUserPassword({
+				email: "sara@example.com",
+				password: "new-password",
+			}),
+			user,
+		);
+		assert.equal(
+			await authenticateUser({
+				email: "sara@example.com",
+				password: "old-password",
+			}),
+			null,
+		);
+		assert.deepEqual(
+			await authenticateUser({
+				email: "sara@example.com",
+				password: "new-password",
+			}),
+			user,
+		);
 	});
 };
