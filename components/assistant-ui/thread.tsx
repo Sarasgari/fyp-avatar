@@ -108,7 +108,7 @@ export const Thread: FC<ThreadProps> = ({
 			<ThreadPrimitive.Viewport
 				turnAnchor="top"
 				className={cn(
-					"aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto scroll-smooth px-2.5 pt-1 pb-2",
+					"aui-thread-viewport relative flex flex-2 min-h-0 flex-col overflow-y-auto overscroll-contain scroll-smooth px-2.5 pt-1 pb-2",
 					compact && "px-2.5 pt-0.5 pb-1.5",
 				)}
 			>

@@ -483,7 +483,7 @@ export const Assistant = () => {
 							</div>
 						</section>
 
-						<section className="min-h-[30rem] overflow-hidden rounded-[26px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:min-h-0">
+						<section className="flex h-[min(44rem,calc(100dvh-2rem))] min-h-[30rem] flex-col overflow-hidden rounded-[26px] border border-white/70 bg-sky-50/66 shadow-[0_22px_70px_-34px_rgba(17,82,153,0.42)] backdrop-blur-2xl lg:h-full lg:min-h-0">
 							<PersistentThread
 								key={authSession?.threadOwnerKey ?? "thread-pending-session"}
 								compact={compactChat}
