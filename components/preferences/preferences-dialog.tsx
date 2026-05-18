@@ -98,7 +98,7 @@ export const PreferencesDialog = ({
 					type="button"
 					variant="outline"
 					size="sm"
-					className="rounded-full shadow-sm"
+					className="rounded-full"
 				>
 					<Settings2Icon className="size-4" />
 					Settings

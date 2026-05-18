@@ -107,6 +107,7 @@ export const runAuthTests = async () => {
 
 			const user = await createUser({
 				email: "sara@example.com",
+				name: "Sara",
 				password: "password-123",
 			});
 			assert.ok(user);

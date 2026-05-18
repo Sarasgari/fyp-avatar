@@ -1,6 +1,7 @@
 "use client";
 
 import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
+import { ContactShadows } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
 	LoaderCircleIcon,
@@ -13,8 +14,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { BodyState, EmotionState, SpeechState } from "@/lib/avatar-state";
 import { cn } from "@/lib/utils";
 
-const MODEL_PATH = "/models/AjoMajo.vrm";
-const BASE_POSITION_Y = -0.4;
+const MODEL_PATH = "/models/viverse_avatar_model_178290.vrm";
+const AVATAR_MODEL_SCALE = 0.62;
+const BASE_POSITION_Y = -0.66;
 const MOUTH_PRESETS = ["aa", "ee", "ih", "oh", "ou"] as const;
 const FACE_EXPRESSION_NAMES = [
 	"happy",
@@ -892,6 +894,180 @@ const dampExpressionValue = (
 	);
 };
 
+const RoomBlock = ({
+	color,
+	position,
+	rotation = [0, 0, 0],
+	scale,
+}: {
+	color: string;
+	position: [number, number, number];
+	rotation?: [number, number, number];
+	scale: [number, number, number];
+}) => (
+	<mesh castShadow receiveShadow position={position} rotation={rotation}>
+		<boxGeometry args={scale} />
+		<meshStandardMaterial color={color} flatShading roughness={0.78} />
+	</mesh>
+);
+
+const RoomCrystal = ({
+	color,
+	position,
+	scale = 1,
+}: {
+	color: string;
+	position: [number, number, number];
+	scale?: number;
+}) => (
+	<group position={position} scale={scale}>
+		<mesh castShadow receiveShadow rotation={[0.2, 0.45, -0.08]}>
+			<octahedronGeometry args={[0.22, 0]} />
+			<meshStandardMaterial
+				color={color}
+				emissive={color}
+				emissiveIntensity={0.12}
+				flatShading
+				roughness={0.42}
+			/>
+		</mesh>
+	</group>
+);
+
+const StageRoom = () => (
+	<group position={[0, -0.9, -0.08]}>
+		<mesh receiveShadow position={[0, -0.12, -0.18]}>
+			<boxGeometry args={[4.25, 0.16, 2.82]} />
+			<meshStandardMaterial color="#bfdcf2" roughness={0.9} />
+		</mesh>
+		<mesh
+			receiveShadow
+			position={[0, -0.015, -0.04]}
+			rotation={[-Math.PI / 2, 0, 0]}
+		>
+			<planeGeometry args={[3.82, 2.46, 4, 3]} />
+			<meshStandardMaterial color="#edf7ff" roughness={0.86} />
+		</mesh>
+
+		{[-0.96, 0, 0.96].map((x) => (
+			<mesh key={`floor-seam-x-${x}`} position={[x, 0.01, -0.04]}>
+				<boxGeometry args={[0.012, 0.012, 2.46]} />
+				<meshStandardMaterial color="#c7e4f8" roughness={0.82} />
+			</mesh>
+		))}
+		{[-0.62, 0.18, 0.98].map((z) => (
+			<mesh key={`floor-seam-z-${z}`} position={[0, 0.012, z]}>
+				<boxGeometry args={[3.82, 0.012, 0.012]} />
+				<meshStandardMaterial color="#c7e4f8" roughness={0.82} />
+			</mesh>
+		))}
+
+		<mesh receiveShadow position={[0, 0.72, -1.28]}>
+			<boxGeometry args={[4.24, 2.22, 0.16]} />
+			<meshStandardMaterial color="#9fd3f2" roughness={0.82} />
+		</mesh>
+		<mesh receiveShadow position={[-2.08, 0.54, -0.22]} rotation={[0, 0.34, 0]}>
+			<boxGeometry args={[0.14, 1.88, 2.18]} />
+			<meshStandardMaterial color="#76bfe8" roughness={0.84} />
+		</mesh>
+		<mesh receiveShadow position={[2.08, 0.54, -0.22]} rotation={[0, -0.34, 0]}>
+			<boxGeometry args={[0.14, 1.88, 2.18]} />
+			<meshStandardMaterial color="#5ea9e8" roughness={0.84} />
+		</mesh>
+
+		<mesh position={[0, 1.0, -1.18]}>
+			<boxGeometry args={[1.18, 0.7, 0.045]} />
+			<meshStandardMaterial
+				color="#eefaff"
+				emissive="#93c5fd"
+				emissiveIntensity={0.28}
+				roughness={0.46}
+			/>
+		</mesh>
+		<mesh castShadow position={[0, 1.0, -1.12]}>
+			<boxGeometry args={[1.36, 0.09, 0.1]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh castShadow position={[0, 0.59, -1.12]}>
+			<boxGeometry args={[1.36, 0.09, 0.1]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh castShadow position={[-0.68, 0.8, -1.12]}>
+			<boxGeometry args={[0.09, 0.5, 0.1]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+		<mesh castShadow position={[0.68, 0.8, -1.12]}>
+			<boxGeometry args={[0.09, 0.5, 0.1]} />
+			<meshStandardMaterial color="#2563eb" roughness={0.52} />
+		</mesh>
+
+		{[-1.45, 1.45].map((x) => (
+			<mesh key={`wall-panel-${x}`} receiveShadow position={[x, 0.74, -1.18]}>
+				<boxGeometry args={[0.6, 1.28, 0.035]} />
+				<meshStandardMaterial color="#b9e4fb" roughness={0.88} />
+			</mesh>
+		))}
+		<mesh castShadow receiveShadow position={[0, 0.05, -1.15]}>
+			<boxGeometry args={[4.05, 0.12, 0.16]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.76} />
+		</mesh>
+
+		<RoomBlock
+			color="#2563eb"
+			position={[-1.36, 0.07, -0.86]}
+			rotation={[0, 0.18, 0]}
+			scale={[0.38, 0.28, 0.38]}
+		/>
+		<RoomBlock
+			color="#bfdbfe"
+			position={[-1.66, 0.23, -0.66]}
+			rotation={[0, -0.24, 0]}
+			scale={[0.32, 0.32, 0.32]}
+		/>
+		<RoomBlock
+			color="#60a5fa"
+			position={[1.28, 0.06, -0.78]}
+			rotation={[0, -0.18, 0]}
+			scale={[0.42, 0.26, 0.36]}
+		/>
+		<RoomBlock
+			color="#1d4ed8"
+			position={[1.58, 0.3, -0.58]}
+			rotation={[0, 0.22, 0]}
+			scale={[0.28, 0.42, 0.28]}
+		/>
+
+		<RoomCrystal color="#f8fbff" position={[-1.28, 0.39, -0.48]} scale={1.08} />
+		<RoomCrystal color="#7dd3fc" position={[1.28, 0.44, -0.42]} scale={0.92} />
+		<RoomCrystal color="#3b82f6" position={[1.62, 0.64, -0.82]} scale={0.76} />
+
+		<mesh castShadow position={[-1.32, 1.27, -1.02]}>
+			<boxGeometry args={[0.7, 0.06, 0.18]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.7} />
+		</mesh>
+		<mesh castShadow position={[-1.54, 1.39, -1.02]}>
+			<boxGeometry args={[0.18, 0.18, 0.18]} />
+			<meshStandardMaterial color="#2563eb" flatShading roughness={0.64} />
+		</mesh>
+		<mesh castShadow position={[-1.18, 1.39, -1.02]} rotation={[0.1, 0.35, 0]}>
+			<tetrahedronGeometry args={[0.16, 0]} />
+			<meshStandardMaterial color="#f8fbff" flatShading roughness={0.58} />
+		</mesh>
+		<mesh castShadow receiveShadow position={[1.3, 0.16, 0.46]}>
+			<cylinderGeometry args={[0.16, 0.22, 0.18, 24]} />
+			<meshStandardMaterial color="#dbeafe" roughness={0.84} />
+		</mesh>
+		<mesh castShadow position={[1.3, 0.36, 0.46]}>
+			<sphereGeometry args={[0.22, 16, 12]} />
+			<meshStandardMaterial color="#60a5fa" roughness={0.72} />
+		</mesh>
+		<mesh castShadow position={[-1.3, 0.18, 0.35]} rotation={[0, 0.42, 0]}>
+			<icosahedronGeometry args={[0.22, 0]} />
+			<meshStandardMaterial color="#f8fbff" flatShading roughness={0.58} />
+		</mesh>
+	</group>
+);
+
 function VRMAvatar({
 	emotionState,
 	bodyState,
@@ -937,6 +1113,12 @@ function VRMAvatar({
 				const loadedVrm = gltf.userData.vrm as VRM;
 				if (!loadedVrm) return;
 
+				loadedVrm.scene.traverse((child) => {
+					if (child instanceof THREE.Mesh) {
+						child.castShadow = true;
+						child.receiveShadow = true;
+					}
+				});
 				loadedVrm.scene.rotation.set(0, Math.PI, 0);
 				loadedVrm.scene.position.set(0, BASE_POSITION_Y, 0);
 				const bodyRig: BodyRig = {};
@@ -1134,7 +1316,7 @@ function VRMAvatar({
 
 	if (!vrm) return null;
 
-	return <primitive object={vrm.scene} scale={1.1} />;
+	return <primitive object={vrm.scene} scale={AVATAR_MODEL_SCALE} />;
 }
 
 type AvatarCanvasProps = {
@@ -1175,14 +1357,12 @@ const AvatarFallback = ({
 				};
 
 	return (
-		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-amber-200/80 bg-[linear-gradient(160deg,rgba(255,230,161,0.9),rgba(255,255,255,0.82))] px-6 py-8 text-center shadow-sm">
-			<div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-800 shadow-sm">
+		<div className="flex h-full min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-blue-200/80 bg-[linear-gradient(160deg,rgba(230,247,255,0.94),rgba(255,255,255,0.84))] px-6 py-8 text-center shadow-sm">
+			<div className="flex size-12 items-center justify-center rounded-full bg-blue-100 text-blue-800 shadow-sm">
 				<ShieldAlertIcon className="size-6" />
 			</div>
-			<h3 className="mt-4 font-medium text-base text-amber-950">
-				{copy.title}
-			</h3>
-			<p className="mt-2 max-w-sm text-amber-900/80 text-sm leading-6">
+			<h3 className="mt-4 font-medium text-base text-blue-950">{copy.title}</h3>
+			<p className="mt-2 max-w-sm text-blue-900/80 text-sm leading-6">
 				{copy.description}
 			</p>
 		</div>
@@ -1216,20 +1396,20 @@ export default function AvatarCanvas({
 	const showFallback = status === "error" || status === "unsupported";
 
 	return (
-		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[28px] border border-white/45 bg-[linear-gradient(150deg,rgba(255,246,205,0.92)_0%,rgba(255,190,113,0.84)_48%,rgba(245,83,59,0.72)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+		<div className="relative h-full min-h-[16rem] w-full overflow-hidden rounded-[24px] border border-white/60 bg-[linear-gradient(150deg,rgba(230,247,255,0.98)_0%,rgba(120,198,244,0.62)_48%,rgba(191,219,254,0.88)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
 			<div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex justify-between gap-3">
 				<div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/72 px-3 py-1.5 text-xs shadow-sm backdrop-blur-xl">
 					{status === "ready" ? (
-						<ShieldCheckIcon className="size-3.5 text-lime-700" />
+						<ShieldCheckIcon className="size-3.5 text-blue-700" />
 					) : status === "loading" ? (
 						<LoaderCircleIcon
 							className={cn(
-								"size-3.5 text-orange-600",
+								"size-3.5 text-blue-700",
 								!reducedMotion && "animate-spin",
 							)}
 						/>
 					) : (
-						<ShieldAlertIcon className="size-3.5 text-amber-700" />
+						<ShieldAlertIcon className="size-3.5 text-red-600" />
 					)}
 					<span className="font-medium">
 						{status === "ready"
@@ -1249,9 +1429,52 @@ export default function AvatarCanvas({
 			</div>
 
 			{canRenderAvatar ? (
-				<Canvas camera={{ position: [-0.9, 1.2, 2.8], fov: 22 }}>
-					<ambientLight intensity={1.2} />
-					<directionalLight position={[1, 1, 1]} intensity={1.5} />
+				<Canvas
+					shadows
+					camera={{ position: [-0.75, 1.1, 3.45], fov: 28 }}
+					gl={{
+						antialias: true,
+						preserveDrawingBuffer: true,
+						powerPreference: "high-performance",
+					}}
+				>
+					<color attach="background" args={["#c7e8fb"]} />
+					<ambientLight intensity={0.44} />
+					<hemisphereLight args={["#f8fbff", "#4d7fd8", 1.05]} />
+					<directionalLight
+						castShadow
+						position={[2.6, 3.8, 2.15]}
+						intensity={2.45}
+						shadow-bias={-0.0004}
+						shadow-camera-bottom={-2.2}
+						shadow-camera-far={9}
+						shadow-camera-left={-2.8}
+						shadow-camera-right={2.8}
+						shadow-camera-top={2.4}
+						shadow-mapSize={[2048, 2048]}
+					/>
+					<pointLight
+						position={[0, 1.08, -0.92]}
+						color="#93c5fd"
+						intensity={2.65}
+						distance={3.4}
+					/>
+					<pointLight
+						position={[-1.55, 0.82, 0.62]}
+						color="#f8fbff"
+						intensity={0.85}
+						distance={2.4}
+					/>
+					<StageRoom />
+					<ContactShadows
+						blur={2.8}
+						color="#1e3a8a"
+						far={2.8}
+						opacity={0.22}
+						position={[0, -0.91, 0.04]}
+						resolution={1024}
+						scale={3.6}
+					/>
 					<VRMAvatar
 						emotionState={emotionState}
 						bodyState={bodyState}
@@ -1267,7 +1490,7 @@ export default function AvatarCanvas({
 					<div className="flex items-center gap-2 text-foreground text-sm">
 						<LoaderCircleIcon
 							className={cn(
-								"size-4 text-orange-600",
+								"size-4 text-blue-700",
 								!reducedMotion && "animate-spin",
 							)}
 						/>

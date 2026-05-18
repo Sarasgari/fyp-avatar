@@ -50,11 +50,13 @@ export const runUserStoreTests = async () => {
 		async () => {
 			const user = await createUser({
 				email: "  Sara@example.com ",
+				name: "Sara",
 				password: "correct horse battery staple",
 			});
 
 			assert.ok(user);
 			assert.equal(user.email, "sara@example.com");
+			assert.equal(user.name, "Sara");
 
 			const authenticatedUser = await authenticateUser({
 				email: "SARA@example.com",
@@ -68,10 +70,12 @@ export const runUserStoreTests = async () => {
 	await run("createUser rejects duplicate email addresses", async () => {
 		const firstUser = await createUser({
 			email: "sara@example.com",
+			name: "Sara",
 			password: "password-123",
 		});
 		const secondUser = await createUser({
 			email: "SARA@example.com",
+			name: "Sara Duplicate",
 			password: "password-456",
 		});
 
@@ -82,6 +86,7 @@ export const runUserStoreTests = async () => {
 	await run("authenticateUser rejects incorrect passwords", async () => {
 		const user = await createUser({
 			email: "sara@example.com",
+			name: "Sara",
 			password: "password-123",
 		});
 
@@ -98,6 +103,7 @@ export const runUserStoreTests = async () => {
 	await run("getUserById returns stored users by id", async () => {
 		const user = await createUser({
 			email: "sara@example.com",
+			name: "Sara",
 			password: "password-123",
 		});
 

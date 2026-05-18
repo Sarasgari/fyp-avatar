@@ -49,55 +49,55 @@
 
 :root {
 	--radius: 0.625rem;
-	--background: oklch(0.965 0.027 63.4);
-	--foreground: oklch(0.19 0.06 35.6);
-	--card: oklch(0.99 0.018 73.4);
-	--card-foreground: oklch(0.19 0.06 35.6);
-	--popover: oklch(0.99 0.018 73.4);
-	--popover-foreground: oklch(0.19 0.06 35.6);
-	--primary: oklch(0.78 0.205 126.9);
-	--primary-foreground: oklch(0.165 0.051 133.9);
-	--secondary: oklch(0.94 0.039 58.4);
-	--secondary-foreground: oklch(0.275 0.07 39.1);
-	--muted: oklch(0.925 0.04 52.2);
-	--muted-foreground: oklch(0.38 0.065 39.9);
-	--accent: oklch(0.83 0.132 49.2);
-	--accent-foreground: oklch(0.24 0.057 36.4);
-	--destructive: oklch(0.58 0.21 29.4);
-	--border: oklch(0.82 0.055 48.9 / 64%);
-	--input: oklch(0.82 0.055 48.9 / 76%);
-	--ring: oklch(0.78 0.205 126.9);
-	--chart-1: oklch(0.69 0.195 35.8);
-	--chart-2: oklch(0.78 0.205 126.9);
-	--chart-3: oklch(0.87 0.15 83.5);
-	--chart-4: oklch(0.7 0.147 185.4);
-	--chart-5: oklch(0.64 0.112 20.9);
+	--background: oklch(0.945 0.04 237);
+	--foreground: oklch(0.24 0.082 263);
+	--card: oklch(0.985 0.014 238);
+	--card-foreground: oklch(0.24 0.082 263);
+	--popover: oklch(0.985 0.014 238);
+	--popover-foreground: oklch(0.24 0.082 263);
+	--primary: oklch(0.6 0.205 260);
+	--primary-foreground: oklch(0.985 0.014 238);
+	--secondary: oklch(0.91 0.055 237);
+	--secondary-foreground: oklch(0.31 0.104 260);
+	--muted: oklch(0.9 0.045 237);
+	--muted-foreground: oklch(0.43 0.08 257);
+	--accent: oklch(0.68 0.18 258);
+	--accent-foreground: oklch(0.985 0.014 238);
+	--destructive: oklch(0.61 0.21 28);
+	--border: oklch(0.78 0.068 239 / 64%);
+	--input: oklch(0.78 0.068 239 / 76%);
+	--ring: oklch(0.62 0.2 260);
+	--chart-1: oklch(0.62 0.2 260);
+	--chart-2: oklch(0.74 0.13 237);
+	--chart-3: oklch(0.89 0.045 238);
+	--chart-4: oklch(0.54 0.15 251);
+	--chart-5: oklch(0.61 0.21 28);
 }
 
 .dark {
-	--background: oklch(0.965 0.027 63.4);
-	--foreground: oklch(0.19 0.06 35.6);
-	--card: oklch(0.99 0.018 73.4);
-	--card-foreground: oklch(0.19 0.06 35.6);
-	--popover: oklch(0.99 0.018 73.4);
-	--popover-foreground: oklch(0.19 0.06 35.6);
-	--primary: oklch(0.78 0.205 126.9);
-	--primary-foreground: oklch(0.165 0.051 133.9);
-	--secondary: oklch(0.94 0.039 58.4);
-	--secondary-foreground: oklch(0.275 0.07 39.1);
-	--muted: oklch(0.925 0.04 52.2);
-	--muted-foreground: oklch(0.38 0.065 39.9);
-	--accent: oklch(0.83 0.132 49.2);
-	--accent-foreground: oklch(0.24 0.057 36.4);
-	--destructive: oklch(0.58 0.21 29.4);
-	--border: oklch(0.82 0.055 48.9 / 64%);
-	--input: oklch(0.82 0.055 48.9 / 76%);
-	--ring: oklch(0.78 0.205 126.9);
-	--chart-1: oklch(0.69 0.195 35.8);
-	--chart-2: oklch(0.78 0.205 126.9);
-	--chart-3: oklch(0.87 0.15 83.5);
-	--chart-4: oklch(0.7 0.147 185.4);
-	--chart-5: oklch(0.64 0.112 20.9);
+	--background: oklch(0.945 0.04 237);
+	--foreground: oklch(0.24 0.082 263);
+	--card: oklch(0.985 0.014 238);
+	--card-foreground: oklch(0.24 0.082 263);
+	--popover: oklch(0.985 0.014 238);
+	--popover-foreground: oklch(0.24 0.082 263);
+	--primary: oklch(0.6 0.205 260);
+	--primary-foreground: oklch(0.985 0.014 238);
+	--secondary: oklch(0.91 0.055 237);
+	--secondary-foreground: oklch(0.31 0.104 260);
+	--muted: oklch(0.9 0.045 237);
+	--muted-foreground: oklch(0.43 0.08 257);
+	--accent: oklch(0.68 0.18 258);
+	--accent-foreground: oklch(0.985 0.014 238);
+	--destructive: oklch(0.61 0.21 28);
+	--border: oklch(0.78 0.068 239 / 64%);
+	--input: oklch(0.78 0.068 239 / 76%);
+	--ring: oklch(0.62 0.2 260);
+	--chart-1: oklch(0.62 0.2 260);
+	--chart-2: oklch(0.74 0.13 237);
+	--chart-3: oklch(0.89 0.045 238);
+	--chart-4: oklch(0.54 0.15 251);
+	--chart-5: oklch(0.61 0.21 28);
 }
 
 @layer base {
@@ -115,6 +115,28 @@
 
 	body {
 		@apply bg-background text-foreground;
-		background: linear-gradient(125deg, #ffd8a8 0%, #ff9c7f 38%, #f94939 100%);
+		background: linear-gradient(125deg, #d9f1ff 0%, #78c6f4 52%, #2f74ef 100%);
+	}
+}
+
+@layer components {
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled) {
+		transform: translateY(0) translateZ(0);
+		will-change: transform, box-shadow;
+	}
+
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):hover {
+		transform: translateY(-2px) translateZ(0);
+	}
+
+	:where([data-slot="button"], [data-slot="tooltip-trigger"]):not(:disabled):active {
+		transform: translateY(2px) scale(0.98) translateZ(0);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:where([data-slot="button"], [data-slot="tooltip-trigger"]) {
+			transform: none;
+			transition-duration: 1ms;
+		}
 	}
 }

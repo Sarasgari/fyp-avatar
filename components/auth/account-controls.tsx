@@ -109,6 +109,7 @@ export const AccountControls = ({
 }: AccountControlsProps) => {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [mode, setMode] = useState<AuthMode>("login");
+	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -119,11 +120,12 @@ export const AccountControls = ({
 	const statusLabel = isLoading
 		? "Checking account..."
 		: isAuthenticated
-			? (session?.user?.email ?? "Signed in")
+			? (session?.user?.name ?? "Signed in")
 			: "Guest session";
 
 	const resetTransientState = () => {
 		setError(null);
+		setName("");
 		setPassword("");
 	};
 
@@ -146,10 +148,18 @@ export const AccountControls = ({
 					"Content-Type": "application/json",
 				},
 				credentials: "same-origin",
-				body: JSON.stringify({
-					email,
-					password,
-				}),
+				body: JSON.stringify(
+					mode === "register"
+						? {
+								email,
+								name,
+								password,
+							}
+						: {
+								email,
+								password,
+							},
+				),
 			});
 			const body = (await response.json().catch(() => null)) as
 				| AuthSessionResponse
@@ -252,6 +262,7 @@ export const AccountControls = ({
 						type="button"
 						variant="outline"
 						size="sm"
+						className="rounded-full"
 						disabled={isSubmitting}
 						onClick={() => void signOut()}
 					>
@@ -262,6 +273,7 @@ export const AccountControls = ({
 						type="button"
 						variant="secondary"
 						size="sm"
+						className="rounded-full"
 						disabled={isLoading}
 						onClick={() => setDialogOpen(true)}
 					>
@@ -288,10 +300,10 @@ export const AccountControls = ({
 							<button
 								type="button"
 								className={cn(
-									"rounded-full px-3 py-1.5 font-medium text-sm transition-colors",
+									"rounded-full px-3 py-1.5 font-medium text-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0.5",
 									mode === "login"
-										? "bg-background text-foreground shadow-sm"
-										: "text-muted-foreground",
+										? "bg-background text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_7px_0_-5px_rgba(96,165,250,0.48),0_14px_26px_-22px_rgba(17,82,153,0.58)]"
+										: "text-muted-foreground hover:bg-background/60",
 								)}
 								onClick={() => {
 									setError(null);
@@ -303,10 +315,10 @@ export const AccountControls = ({
 							<button
 								type="button"
 								className={cn(
-									"rounded-full px-3 py-1.5 font-medium text-sm transition-colors",
+									"rounded-full px-3 py-1.5 font-medium text-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0.5",
 									mode === "register"
-										? "bg-background text-foreground shadow-sm"
-										: "text-muted-foreground",
+										? "bg-background text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_7px_0_-5px_rgba(96,165,250,0.48),0_14px_26px_-22px_rgba(17,82,153,0.58)]"
+										: "text-muted-foreground hover:bg-background/60",
 								)}
 								onClick={() => {
 									setError(null);
@@ -316,6 +328,21 @@ export const AccountControls = ({
 								Create account
 							</button>
 						</div>
+
+						{mode === "register" ? (
+							<label className="grid gap-1.5" htmlFor="auth-name">
+								<span className="font-medium text-sm">Name</span>
+								<Input
+									id="auth-name"
+									autoComplete="name"
+									disabled={isSubmitting}
+									placeholder="Your name"
+									type="text"
+									value={name}
+									onChange={(event) => setName(event.target.value)}
+								/>
+							</label>
+						) : null}
 
 						<label className="grid gap-1.5" htmlFor="auth-email">
 							<span className="font-medium text-sm">Email</span>
@@ -365,6 +392,7 @@ export const AccountControls = ({
 								type="submit"
 								disabled={
 									isSubmitting ||
+									(mode === "register" && name.trim().length < 2) ||
 									email.trim().length === 0 ||
 									password.length < 8
 								}

@@ -1,7 +1,11 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type AuthenticatedUser, normalizeEmail } from "../auth";
+import {
+	type AuthenticatedUser,
+	normalizeDisplayName,
+	normalizeEmail,
+} from "../auth";
 
 type UpstashPipelineResponse = {
 	error?: string;
@@ -161,9 +165,17 @@ const parseStoredUserRecord = (value: unknown): StoredUserRecord | null => {
 		return null;
 	}
 
+	const fallbackName =
+		record.email.split("@")[0]?.replace(/[._-]+/g, " ") || "Signed in user";
+	const name =
+		typeof record.name === "string" && normalizeDisplayName(record.name)
+			? normalizeDisplayName(record.name)
+			: normalizeDisplayName(fallbackName);
+
 	return {
 		id: record.id,
 		email: record.email,
+		name,
 		createdAt: record.createdAt,
 		passwordHash: record.passwordHash,
 	};
@@ -176,6 +188,7 @@ const toAuthenticatedUser = (
 		? {
 				id: record.id,
 				email: record.email,
+				name: record.name,
 				createdAt: record.createdAt,
 			}
 		: null;
@@ -230,9 +243,11 @@ const loadFileUserByEmail = async (email: string) => {
 
 const createMemoryUser = ({
 	email,
+	name,
 	password,
 }: {
 	email: string;
+	name: string;
 	password: string;
 }) => {
 	const normalizedEmail = normalizeEmail(email);
@@ -243,6 +258,7 @@ const createMemoryUser = ({
 	const record: StoredUserRecord = {
 		id: crypto.randomUUID(),
 		email: normalizedEmail,
+		name: normalizeDisplayName(name),
 		createdAt: new Date().toISOString(),
 		passwordHash: hashPassword(password),
 	};
@@ -254,9 +270,11 @@ const createMemoryUser = ({
 
 const createFileUser = async ({
 	email,
+	name,
 	password,
 }: {
 	email: string;
+	name: string;
 	password: string;
 }) => {
 	return withFileUserStoreLock(async () => {
@@ -269,6 +287,7 @@ const createFileUser = async ({
 		const record: StoredUserRecord = {
 			id: crypto.randomUUID(),
 			email: normalizedEmail,
+			name: normalizeDisplayName(name),
 			createdAt: new Date().toISOString(),
 			passwordHash: hashPassword(password),
 		};
@@ -322,9 +341,11 @@ const loadUpstashUserByEmail = async (email: string) => {
 
 const createUpstashUser = async ({
 	email,
+	name,
 	password,
 }: {
 	email: string;
+	name: string;
 	password: string;
 }) => {
 	const normalizedEmail = normalizeEmail(email);
@@ -336,6 +357,7 @@ const createUpstashUser = async ({
 	const record: StoredUserRecord = {
 		id: crypto.randomUUID(),
 		email: normalizedEmail,
+		name: normalizeDisplayName(name),
 		createdAt: new Date().toISOString(),
 		passwordHash: hashPassword(password),
 	};
@@ -344,7 +366,7 @@ const createUpstashUser = async ({
 		["SET", getUserRecordKey(record.id), JSON.stringify(record)],
 	]);
 	if (!pipelineResult) {
-		return createMemoryUser({ email: normalizedEmail, password });
+		return createMemoryUser({ email: normalizedEmail, name, password });
 	}
 
 	if (pipelineResult[0]?.error || pipelineResult[1]?.error) {
@@ -364,23 +386,25 @@ const createUpstashUser = async ({
 
 export const createUser = async ({
 	email,
+	name,
 	password,
 }: {
 	email: string;
+	name: string;
 	password: string;
 }) => {
 	try {
 		if (hasFileUserStore()) {
-			return await createFileUser({ email, password });
+			return await createFileUser({ email, name, password });
 		}
 
-		return await createUpstashUser({ email, password });
+		return await createUpstashUser({ email, name, password });
 	} catch (error) {
 		warnOnce(
 			"Shared user storage backend failed. Falling back to in-memory user storage.",
 			error,
 		);
-		return createMemoryUser({ email, password });
+		return createMemoryUser({ email, name, password });
 	}
 };
 

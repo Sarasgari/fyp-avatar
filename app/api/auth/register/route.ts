@@ -10,7 +10,7 @@ import {
 import {
 	createAuthCookie,
 	createIdentityResponseHeaders,
-	getValidatedCredentials,
+	getValidatedRegistrationCredentials,
 	resolveRequestIdentity,
 } from "@/lib/server/auth";
 import { validateProductionServerConfig } from "@/lib/server/production-config";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 	}
 
 	const body = await request.json().catch(() => null);
-	const credentials = getValidatedCredentials(body);
+	const credentials = getValidatedRegistrationCredentials(body);
 	if (!credentials.ok) {
 		return jsonError(400, credentials.message, {
 			requestId,
