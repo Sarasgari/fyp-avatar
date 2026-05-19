@@ -1,4 +1,5 @@
 type ProductionConfigCheckOptions = {
+	requiresElevenLabs?: boolean;
 	requiresOpenAi?: boolean;
 };
 
@@ -14,6 +15,7 @@ type ProductionConfigValidationResult =
 	  };
 
 const getMissingProductionEnvironmentVariables = ({
+	requiresElevenLabs = false,
 	requiresOpenAi = false,
 }: ProductionConfigCheckOptions) => {
 	const missing: string[] = [];
@@ -30,10 +32,15 @@ const getMissingProductionEnvironmentVariables = ({
 		missing.push("OPENAI_API_KEY");
 	}
 
+	if (requiresElevenLabs && !process.env.ELEVENLABS_API_KEY?.trim()) {
+		missing.push("ELEVENLABS_API_KEY");
+	}
+
 	return missing;
 };
 
 export const validateProductionServerConfig = ({
+	requiresElevenLabs = false,
 	requiresOpenAi = false,
 }: ProductionConfigCheckOptions = {}): ProductionConfigValidationResult => {
 	if (process.env.NODE_ENV !== "production") {
@@ -43,6 +50,7 @@ export const validateProductionServerConfig = ({
 	}
 
 	const missing = getMissingProductionEnvironmentVariables({
+		requiresElevenLabs,
 		requiresOpenAi,
 	});
 

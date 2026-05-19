@@ -22,15 +22,95 @@ const TTS_IP_RATE_LIMIT = {
 	windowMs: 10 * 60 * 1_000,
 } as const;
 const E2E_TTS_MODE = process.env.E2E_TTS_MODE?.trim() || "";
+const DEFAULT_ELEVENLABS_VOICE_ID = "CwhRBWXzGAHq8TQ4Fs17";
+const DEFAULT_ELEVENLABS_MODEL_ID = "eleven_multilingual_v2";
+const DEFAULT_ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
 
-const openai = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
-});
+const getTtsProvider = () => {
+	const provider = process.env.TTS_PROVIDER?.trim().toLowerCase() || "openai";
+	return provider === "elevenlabs" ? "elevenlabs" : "openai";
+};
+
+const getTtsConfigError = (ttsProvider: ReturnType<typeof getTtsProvider>) => {
+	if (ttsProvider === "elevenlabs") {
+		return process.env.ELEVENLABS_API_KEY?.trim()
+			? null
+			: "ELEVENLABS_API_KEY is missing.";
+	}
+
+	return process.env.OPENAI_API_KEY?.trim()
+		? null
+		: "OPENAI_API_KEY is missing.";
+};
+
+const createOpenAiSpeech = async (text: string) => {
+	const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+	if (!apiKey) {
+		throw new Error("OPENAI_API_KEY is required for OpenAI TTS.");
+	}
+
+	const openai = new OpenAI({ apiKey });
+	const speech = await openai.audio.speech.create({
+		model: "gpt-4o-mini-tts",
+		voice: "nova",
+		input: text,
+		response_format: "mp3",
+	});
+
+	return Buffer.from(await speech.arrayBuffer());
+};
+
+const createElevenLabsSpeech = async (text: string) => {
+	const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
+
+	if (!apiKey) {
+		throw new Error("ELEVENLABS_API_KEY is required for ElevenLabs TTS.");
+	}
+
+	const voiceId =
+		process.env.ELEVENLABS_VOICE_ID?.trim() || DEFAULT_ELEVENLABS_VOICE_ID;
+	const modelId =
+		process.env.ELEVENLABS_MODEL_ID?.trim() || DEFAULT_ELEVENLABS_MODEL_ID;
+	const outputFormat =
+		process.env.ELEVENLABS_OUTPUT_FORMAT?.trim() ||
+		DEFAULT_ELEVENLABS_OUTPUT_FORMAT;
+	const response = await fetch(
+		`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
+			voiceId,
+		)}/stream?output_format=${encodeURIComponent(outputFormat)}`,
+		{
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"xi-api-key": apiKey,
+			},
+			body: JSON.stringify({
+				model_id: modelId,
+				text,
+			}),
+			cache: "no-store",
+		},
+	);
+
+	if (!response.ok) {
+		const errorBody = await response.text().catch(() => "");
+		throw new Error(
+			`ElevenLabs TTS returned ${response.status}${
+				errorBody ? ` ${errorBody.slice(0, 300)}` : ""
+			}`,
+		);
+	}
+
+	return Buffer.from(await response.arrayBuffer());
+};
 
 export async function POST(req: Request) {
 	const requestId = crypto.randomUUID();
+	const ttsProvider = getTtsProvider();
 	const configCheck = validateProductionServerConfig({
-		requiresOpenAi: E2E_TTS_MODE !== "fail",
+		requiresElevenLabs: E2E_TTS_MODE !== "fail" && ttsProvider === "elevenlabs",
+		requiresOpenAi: E2E_TTS_MODE !== "fail" && ttsProvider === "openai",
 	});
 	if (!configCheck.ok) {
 		console.error(`[tts:${requestId}] ${configCheck.logMessage}`);
@@ -134,25 +214,20 @@ export async function POST(req: Request) {
 			});
 		}
 
-		if (!process.env.OPENAI_API_KEY) {
-			console.error(`[tts:${requestId}] TTS route is missing OPENAI_API_KEY.`);
-			return jsonError(500, "TTS is not configured.", {
+		const configError = getTtsConfigError(ttsProvider);
+		if (configError) {
+			console.error(`[tts:${requestId}] ${configError}`);
+			return jsonError(500, `TTS is not configured: ${configError}`, {
 				requestId,
 				rateLimit: activeRateLimit,
 				headers: responseHeaders,
 			});
 		}
 
-		// Keep the route small and predictable: it accepts plain text and always
-		// returns MP3 audio generated with the requested OpenAI TTS model/voice.
-		const speech = await openai.audio.speech.create({
-			model: "gpt-4o-mini-tts",
-			voice: "nova",
-			input: text,
-			response_format: "mp3",
-		});
-
-		const audioBuffer = Buffer.from(await speech.arrayBuffer());
+		const audioBuffer =
+			ttsProvider === "elevenlabs"
+				? await createElevenLabsSpeech(text)
+				: await createOpenAiSpeech(text);
 
 		return applyResponseHeaders(
 			new Response(audioBuffer, {
@@ -169,7 +244,13 @@ export async function POST(req: Request) {
 		);
 	} catch (error) {
 		console.error(`[tts:${requestId}] Failed to synthesize speech.`, error);
-		return jsonError(500, "Failed to synthesize speech.", {
+		const errorMessage =
+			process.env.NODE_ENV === "production"
+				? "Failed to synthesize speech."
+				: `Failed to synthesize speech with ${getTtsProvider()}: ${
+						error instanceof Error ? error.message : "Unknown error."
+					}`;
+		return jsonError(500, errorMessage, {
 			requestId,
 			rateLimit: activeRateLimit,
 			headers: responseHeaders,

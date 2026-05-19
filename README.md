@@ -16,6 +16,15 @@ npm install
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
+To use ElevenLabs for voice playback, add your ElevenLabs key and switch the
+TTS provider:
+
+```bash
+TTS_PROVIDER=elevenlabs
+ELEVENLABS_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ELEVENLABS_VOICE_ID=CwhRBWXzGAHq8TQ4Fs17
+```
+
 3. Start the development server:
 
 ```bash
@@ -51,6 +60,7 @@ npm run build
 - Set `SESSION_SIGNING_SECRET` in every deployed environment. Without it, production API requests are rejected.
 - Set `AUTH_SIGNING_SECRET` if you want a separate signing key for account cookies. If omitted, account cookies reuse `SESSION_SIGNING_SECRET`.
 - Set `ALLOWED_ORIGINS` in deployed environments to block cross-site POSTs to the chat and TTS APIs. Production routes now reject requests if this allowlist is missing.
+- Set `TTS_PROVIDER=elevenlabs` plus `ELEVENLABS_API_KEY` to use ElevenLabs speech instead of the default OpenAI TTS route. You can also set `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`, and `ELEVENLABS_OUTPUT_FORMAT`.
 - If `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured, rate limiting, account storage, and saved-thread storage use Upstash Redis REST. Otherwise they fall back to process-local memory.
 
 ## Important Files

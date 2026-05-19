@@ -3,6 +3,7 @@ import { validateProductionServerConfig } from "../../lib/server/production-conf
 
 const ORIGINAL_ENV = {
 	ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+	ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
 	NODE_ENV: process.env.NODE_ENV,
 	OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 	SESSION_SIGNING_SECRET: process.env.SESSION_SIGNING_SECRET,
@@ -20,6 +21,7 @@ const setNodeEnv = (value: string | undefined) => {
 
 const restoreEnvironment = () => {
 	process.env.ALLOWED_ORIGINS = ORIGINAL_ENV.ALLOWED_ORIGINS;
+	process.env.ELEVENLABS_API_KEY = ORIGINAL_ENV.ELEVENLABS_API_KEY;
 	process.env.OPENAI_API_KEY = ORIGINAL_ENV.OPENAI_API_KEY;
 	process.env.SESSION_SIGNING_SECRET = ORIGINAL_ENV.SESSION_SIGNING_SECRET;
 	setNodeEnv(ORIGINAL_ENV.NODE_ENV);
@@ -28,6 +30,7 @@ const restoreEnvironment = () => {
 const resetTestState = () => {
 	restoreEnvironment();
 	delete process.env.ALLOWED_ORIGINS;
+	delete process.env.ELEVENLABS_API_KEY;
 	delete process.env.OPENAI_API_KEY;
 	delete process.env.SESSION_SIGNING_SECRET;
 	setNodeEnv("test");
@@ -84,6 +87,24 @@ export const runProductionConfigTests = async () => {
 			if (result.ok) return;
 
 			assert.deepEqual(result.missing, ["OPENAI_API_KEY"]);
+		},
+	);
+
+	run(
+		"validateProductionServerConfig requires ELEVENLABS_API_KEY when requested in production",
+		() => {
+			setNodeEnv("production");
+			process.env.ALLOWED_ORIGINS = "https://avatar.example";
+			process.env.SESSION_SIGNING_SECRET = "session-secret";
+
+			const result = validateProductionServerConfig({
+				requiresElevenLabs: true,
+			});
+
+			assert.equal(result.ok, false);
+			if (result.ok) return;
+
+			assert.deepEqual(result.missing, ["ELEVENLABS_API_KEY"]);
 		},
 	);
 
